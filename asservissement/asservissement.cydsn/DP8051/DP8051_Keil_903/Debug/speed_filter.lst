@@ -1,0 +1,2696 @@
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE SPEED_FILTER
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\speed_filter.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\spee
+                    -d_filter.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\speed_filter.lst) CD DB NOIP OT(2,SIZE) INCDIR
+                    -(Generated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\speed_filter.obj)
+
+line level    source
+
+   1          #include "speed_filter.h"
+   2          #include "Options.h"
+   3          #include <math.h>
+   4          #include <string.h>
+   5          #ifndef NEW_RAMP
+              
+              void speed_filter_init(struct speed_filter * sf,uint16_t speed_pos,uint16_t speed_neg,
+                                      uint16_t acc_pos/*,uint16_t decc_pos*/,uint16_t acc_neg/*,
+                                      uint16_t decc_neg*/)
+              {       
+                      //memset ( sf , 0 , sizeof ( struct speed_filter ) );
+                  sf->speed_pos=speed_pos;
+                  sf->speed_neg=speed_neg;
+                  sf->acc_pos=acc_pos;
+                  //sf->decc_pos=decc_pos;
+                  sf->acc_neg=acc_neg;
+                  //sf->decc_neg=decc_neg;
+                  sf->consign=0;
+                  sf->prev_out=0;
+                  sf->prev_speed=0;
+              }
+              
+              void speed_filter_set_consign(struct speed_filter * sf,int32_t *consign)
+              {
+                      int16_t pt1;
+                      
+                      if (*consign>=0)
+                      sf->consign=*consign<<10;
+                      else
+                              sf->consign=-((-*consign)<<10);
+                      
+                  //Calcul of instants t0,t1 et t2.
+                  //Those results are provided by the solve of the equation :
+                  //              consign=integral(dx/dt);
+                  /* assuming that acc_pos*t0=-decc_pos*t1+decc_pos*t2=x.*/
+                  
+                  if (sf->consign>=0)
+                  {
+              
+                      sf->t0=sf->speed_pos/sf->acc_pos;
+                      //pt1=sf->t0/2+(sf->consign)/sf->speed_pos-sf->speed_pos/(2*sf->decc_pos);
+                      pt1=sf->t0/2+(sf->consign)/sf->speed_pos-sf->speed_pos/(2*sf->acc_pos);
+                      if(pt1<(int16_t)sf->t0)
+                      {
+                          /*//Now, the problem is different
+                          //it could be solved assuming that the
+                          //[(0,0),(0,t2),(x,t2),(x,0)] rectangle
+                          //has an area equal to 2*C.
+                          //   dx
+                          //   --
+                          //   dt
+                          //    ^
+                          //    |
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 2   
+
+                          //   x|.. .     x=2sf->consign/t2
+                          //    |  /:\
+                          //    | / : \
+                          //    |/  :  \
+                          //    O---------------------> t
+                          //      t0=t1 t2
+                          /*sf->t2=(uint16_t)sqrt((double)
+                                  (2*(sf->consign)*(sf->acc_pos+sf->decc_pos))/(sf->acc_pos*sf->decc_pos));//*/
+                          sf->t2=(uint16_t)sqrt((double)
+                                  (2*(sf->consign)*(sf->acc_pos+sf->acc_pos))/(sf->acc_pos*sf->acc_pos));
+              
+                          sf->t0=2*(sf->consign)/(sf->acc_pos*sf->t2);
+                          pt1=sf->t0;
+                          sf->x=2*(sf->consign)/sf->t2;
+                      }
+                      else
+                      {
+                          //sf->t2=sf->speed_pos/sf->decc_pos + pt1;
+                          sf->t2=sf->speed_pos/sf->acc_pos + pt1;
+                          sf->x=sf->speed_pos;
+                      }
+                      sf->t1=pt1;
+                  }
+                  else//equivalent negative case
+                  {
+                      sf->t0=sf->speed_neg/sf->acc_neg;
+                      //pt1=sf->speed_neg/(sf->acc_neg*2)+(-sf->consign)/sf->speed_neg-sf->speed_neg/(2*sf->decc_neg);
+                      pt1=sf->speed_neg/(sf->acc_neg*2)+(-sf->consign)/sf->speed_neg-sf->speed_neg/(2*sf->acc_neg);
+                      if(pt1<( int16_t)sf->t0)
+                      {
+                          /*sf->t2=(uint16_t)sqrt((double)
+                                  (2*(-sf->consign)*(sf->acc_neg+sf->decc_neg))/(sf->acc_neg*sf->decc_neg));//*/
+                          sf->t2=(uint16_t)sqrt((double)
+                                  (2*(-sf->consign)*(sf->acc_neg+sf->acc_neg))/(sf->acc_neg*sf->acc_neg));
+                          sf->t0=2*(-sf->consign)/(sf->acc_neg*sf->t2);
+                          pt1=sf->t0;
+                          sf->x=2*(-sf->consign)/sf->t2;
+                      }
+                      else
+                      {
+                          //sf->t2=sf->speed_neg/sf->decc_neg + pt1;
+                          sf->t2=sf->speed_neg/sf->acc_neg + pt1;
+                          sf->x=sf->speed_neg;
+                      }
+                      sf->t1=pt1;
+                  }
+                  sf->prev_out=0;
+                  sf->prev_speed=0;
+                  sf->t=0;
+                  //sf->prev_speed=sf->consign>=0?1:-1;
+              }
+              
+              
+              char speed_filter_do_filter(struct speed_filter * sf,int32_t *filtered_consign)
+              {
+                  if(sf->consign>=0)
+                  {
+                      if(sf->t>sf->t1)
+                      {
+                          if(sf->t+1>=sf->t2)
+                          {
+                              *filtered_consign=sf->consign>>10;
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 3   
+
+                              return 1;
+                          }
+                          //sf->prev_speed-=sf->decc_pos;
+                          sf->prev_speed-=sf->acc_pos;
+                      }
+                      else if (sf->t<sf->t0)
+                      {
+                          sf->prev_speed+=sf->acc_pos;
+                      }
+                      else
+                      {
+                                      if(sf->ta)
+                                      {
+                                              if(sf->prev_speed>sf->x)
+                                                      sf->prev_speed-=sf->acc_pos;
+                                              else
+                                              {
+                                                      sf->prev_speed=sf->x;
+                                                      sf->ta=0;
+                                              }
+                                      }
+                                      else
+                                      {
+                              sf->prev_speed=sf->x;
+                                      }
+                      }
+                  }
+                  else
+                  {
+                      if(sf->t>sf->t1)
+                      {
+                          if(sf->t+1>=sf->t2)
+                          {
+                              *filtered_consign=sf->consign>>10;;
+                              return 1;
+                          }
+                          //sf->prev_speed+=sf->decc_neg;
+                          sf->prev_speed+=sf->acc_neg;
+                      }
+                      else if (sf->t<sf->t0)
+                      {
+                          sf->prev_speed-=sf->acc_neg;
+                      }
+                      else
+                      {
+                          if(sf->ta)
+                                      {
+                                              if(sf->prev_speed<sf->x)
+                                                      sf->prev_speed+=sf->acc_pos;
+                                              else
+                                              {
+                                                      sf->prev_speed=-sf->x;
+                                                      sf->ta=0;
+                                              }
+                                      }
+                                      else
+                                      {
+                              sf->prev_speed=-sf->x;
+                                      }
+                      }
+                  }
+                  sf->prev_out+=sf->prev_speed;
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 4   
+
+                      if (sf->prev_out>=0)
+                      *filtered_consign=sf->prev_out>>10;
+                      else
+                              *filtered_consign=-((-sf->prev_out)>>10);
+                              
+                      
+                      
+                      /*int16 uart_buff[2];
+                      uint16_t i;
+                      char ret[32];
+                      if(Debug_speed)
+                      {
+                              if (sf->prev_out>0)
+                              {
+                                      uart_buff[0]=sf->prev_out>>16;
+                                      i=sf->prev_out;
+                                      sprintf(ret,"\r %d %u`|",uart_buff[0],i);
+                                      UART_1_PutString(&ret);
+                              }
+                              else
+                              {
+                                      uart_buff[0]=(-sf->prev_out)>>16;
+                                      i=sf->prev_out;
+                                      sprintf(ret,"\r -%d %u|",uart_buff[0],i);
+                                      UART_1_PutString(&ret);
+                              }
+                              if (*filtered_consign>0)
+                              {
+                                      uart_buff[1]=*filtered_consign>>16;
+                                      i=*filtered_consign;
+                                      sprintf(ret,",  %d %u",uart_buff[1],i);
+                                      UART_1_PutString(&ret);
+                              }
+                              else
+                              {
+                                      uart_buff[1]=(-*filtered_consign)>>16;
+                                      i=*filtered_consign;
+                                      sprintf(ret,", -%d %u",uart_buff[1],i);
+                                      UART_1_PutString(&ret);
+                              }
+                      }*/
+                      
+                  ++sf->t;
+                  return 0;
+              }
+              
+              
+              void speed_filter_stop(struct speed_filter * sf)
+              {
+                      sf->prev_out=0;
+                      sf->t=0;sf->t0=0;sf->t1=0;
+                      if(sf->prev_speed>=0)
+                      {
+                              sf->t2=sf->prev_speed/sf->acc_pos;
+                              sf->consign=(sf->prev_speed*sf->prev_speed)/(2*sf->acc_pos);
+                      }
+                      else
+                      {
+                              sf->t2=(-sf->prev_speed)/sf->acc_pos;
+                              sf->consign=-(sf->prev_speed*sf->prev_speed)/(2*sf->acc_pos);
+                      }
+              }
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 5   
+
+              
+              char speed_change(struct speed_filter *sf, int32_t speed)
+              {
+                      int16_t pt1;
+                      if(sf->t>sf->t1)
+                      {
+                              sf->speed_neg=speed;
+                              return 1;
+                      }
+                              
+                      if(sf->consign>=0)
+                      {
+                              if(sf->t<sf->t0)
+                              {
+                                      if(sf->prev_speed>speed)
+                                      {
+                                              sf->t0=sf->t;
+                                              sf->t1=sf->t+(sf->prev_speed-speed)/sf->acc_pos +
+                                                      (sf->consign-sf->prev_out - (((sf->prev_speed-speed)*speed)+
+                                                      ((sf->prev_speed-speed)*(sf->prev_speed-speed)+speed*speed)/2)
+                                                      /sf->acc_pos)/speed;
+                                              sf->t2=sf->t1 + speed/sf->acc_pos;
+                                              sf->ta=1;
+                                              sf->x=speed;
+                                              sf->speed_pos=speed;
+                                      }
+                                      else 
+                                      {
+                                              sf->speed_pos=speed;
+                                              sf->t0=sf->speed_pos/sf->acc_pos;
+                                              pt1=sf->t0/2+(sf->consign)/sf->speed_pos-sf->speed_pos
+                                                      /(2*sf->acc_pos);
+                                              if(pt1<( int16_t)sf->t0)
+                                              {
+                                                      sf->t2=(uint16_t)sqrt((double)
+                                                                      (2*(sf->consign)*(sf->acc_pos+sf->acc_pos))
+                                                                      /(sf->acc_pos*sf->acc_pos));
+                              
+                                                      sf->t0=2*(sf->consign)/(sf->acc_pos*sf->t2);
+                                                      pt1=sf->t0;
+                                                      sf->x=2*(sf->consign)/sf->t2;
+                                              }
+                                              else
+                                              {
+                                                      //sf->t2=sf->speed_pos/sf->decc_pos + pt1;
+                                                      sf->t2=sf->speed_pos/sf->acc_pos + pt1;
+                                                      sf->x=sf->speed_pos;
+                                              }
+                                              sf->t1=pt1;
+                                      }
+                              }
+                              else if (sf->t<sf->t1)
+                              {
+                              
+                                      sf->t1=sf->t+(sf->prev_speed-speed)/sf->acc_pos +
+                                              (sf->consign-sf->prev_out - (((sf->prev_speed-speed)*speed)+
+                                              ((sf->prev_speed-speed)*(sf->prev_speed-speed)+speed*speed)/2)
+                                              /sf->acc_pos)/speed;
+                                      sf->t2=sf->t1 + speed/sf->acc_pos;
+                                      sf->ta=1;
+                                      sf->x=speed;
+                                      sf->speed_pos=speed;
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 6   
+
+                              }
+                              else
+                                      return 0;
+                      }
+                      else
+                      {
+                              if(sf->t<sf->t0)
+                              {
+                                      if((-sf->prev_speed)>speed)
+                                      {
+                                              sf->t0=sf->t;
+                                              sf->t1=sf->t+((-sf->prev_speed)-speed)/sf->acc_pos +
+                                                      ((-sf->consign)-sf->prev_out - ((((-sf->prev_speed)-speed)*speed)+
+                                                      (((-sf->prev_speed)-speed)*((-sf->prev_speed)-speed)+speed*speed)/2)
+                                                      /sf->acc_neg)/speed;
+                                              sf->t2=sf->t1 + speed/sf->acc_neg;
+                                              sf->ta=1;
+                                              sf->x=speed;
+                                              sf->speed_neg=speed;
+                                      }
+                                      else 
+                                      {
+                                              sf->speed_pos=speed;
+                                              sf->t0=sf->speed_neg/sf->acc_neg;
+                                              pt1=sf->speed_neg/(sf->acc_neg*2)+(-sf->consign)/
+                                                      sf->speed_neg-sf->speed_neg/(2*sf->acc_neg);
+                                              if(pt1<( int16_t)sf->t0)
+                                              {
+                                                      sf->t2=(uint16_t)sqrt((double)
+                                                              (2*(-sf->consign)*(sf->acc_neg+sf->acc_neg))/
+                                                              (sf->acc_neg*sf->acc_neg));
+                                                      sf->t0=2*(-sf->consign)/(sf->acc_neg*sf->t2);
+                                                      pt1=sf->t0;
+                                                      sf->x=2*(-sf->consign)/sf->t2;
+                                              }
+                                              else
+                                              {
+                                                      sf->t2=sf->speed_neg/sf->acc_neg + pt1;
+                                                      sf->x=sf->speed_neg;
+                                              }
+                                              sf->t1=pt1;
+                                      }
+                              }
+                              else if (sf->t<sf->t1)
+                              {
+                                      sf->t1=sf->t+((-sf->prev_speed)-speed)/sf->acc_pos +
+                                              ((-sf->consign)-sf->prev_out - ((((-sf->prev_speed)-speed)*speed)+
+                                              (((-sf->prev_speed)-speed)*((-sf->prev_speed)-speed)+speed*speed)/2)
+                                              /sf->acc_neg)/speed;
+                                      sf->t2=sf->t1 + speed/sf->acc_neg;
+                                      sf->ta=1;
+                                      sf->x=speed;
+                                      sf->speed_neg=speed;
+                              }
+                              else
+                                      return 0;
+                      }
+                      return 1;
+              }
+              
+              
+              
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 7   
+
+              
+              #else
+ 366          /************************Modification par TELEMAQUE Olivier de la rampe de vitesse************************
+             -********************/
+ 367          
+ 368          void speed_filter_init(struct speed_filter* sf, int16_t speed_pos, int16_t speed_neg, double acc_pos, doub
+             -le acc_neg)
+ 369          {
+ 370   1          sf->speed_pos = speed_pos;
+ 371   1          sf->speed_neg = speed_neg;
+ 372   1          sf->acc_pos = acc_pos;
+ 373   1          sf->acc_neg = acc_neg;
+ 374   1          sf->consign = 0;
+ 375   1          sf->prev_out = 0;
+ 376   1          sf->prev_speed = 0;
+ 377   1              sf->t = 0;
+ 378   1              sf->t0 = 0;
+ 379   1              sf->t1 = 0;
+ 380   1              sf->t2 = 0;
+ 381   1      }
+ 382          
+ 383          void speed_filter_set_consign(struct speed_filter* sf, int32_t* consign)//penser ? g?rer consigne n?gative
+             -,quelques optimisations possibles
+ 384          {
+ 385   1              int32_t aire_A, aire_B, aire_C, t2_t1, pt1, absolute_consign;
+ 386   1          double speed;
+ 387   1               
+ 388   1              sf->consign = *consign;
+ 389   1          absolute_consign = *consign >= 0 ? *consign : -*consign;
+ 390   1      
+ 391   1              sf->t0 = (int16_t)(sf->speed_pos / sf->acc_pos);
+ 392   1              t2_t1 = (int32_t)(sf->speed_pos / sf->acc_neg);
+ 393   1              aire_A = sf->t0 * sf->speed_pos / 2;
+ 394   1              aire_C = t2_t1 * sf->speed_pos / 2;
+ 395   1              aire_B = absolute_consign - aire_A - aire_C;
+ 396   1              pt1 = (int32_t)(aire_B / sf->speed_pos + sf->t0);
+ 397   1              sf->t2 = (int16_t)(t2_t1 + pt1);
+ 398   1      
+ 399   1              if(pt1 < sf->t0)//cas ou le trapèze est dégénéré
+ 400   1              { 
+ 401   2              speed = sqrt((2 * absolute_consign * (sf->acc_neg * sf->acc_pos)) / (sf->acc_neg + sf->acc_pos));
+ 402   2                      sf->speed_pos = (int16_t)speed;
+ 403   2                      sf->t0 = (int16_t)(sf->t1 = speed / sf->acc_pos);
+ 404   2                      sf->t2 = (int16_t)(sf->t1 + speed/sf->acc_neg);
+ 405   2              }
+ 406   1              else
+ 407   1                      sf->t1 = (int16_t)(pt1);
+ 408   1              
+ 409   1              sf->t = 0;
+ 410   1              sf->prev_speed = 0;
+ 411   1              sf->prev_out = 0;
+ 412   1      }
+ 413          
+ 414          
+ 415          char speed_filter_do_filter(struct speed_filter* sf, int32_t* filtered_consign)
+ 416          {
+ 417   1              double consign = sf->prev_out;
+ 418   1              uint16_t cte = sf->speed_pos*sf->t0 / 2.0 + (sf->t1 - sf->t0) * sf->speed_pos;
+ 419   1      
+ 420   1          if(sf->t < sf->t0)
+ 421   1          {
+ 422   2                      sf->prev_speed = (sf->t + 1) * sf->acc_pos;
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 8   
+
+ 423   2                      consign = (sf->t + 1) * (sf->t + 1) * sf->acc_pos / 2.0;
+ 424   2          }
+ 425   1              else if(sf->t < sf->t1)
+ 426   1              {
+ 427   2                  sf->prev_speed = sf->speed_pos;
+ 428   2                  consign = sf->speed_pos * sf->t0 / 2.0 + ((sf->t + 1) - sf->t0) * sf->prev_speed;
+ 429   2              }
+ 430   1              else if(sf->t < sf->t2)
+ 431   1              {
+ 432   2                      sf->prev_speed = sf->speed_pos - floor(((sf->t + 1) - sf->t1) * sf->acc_neg);
+ 433   2                      consign = cte + ((sf->t2 - sf->t1) * sf->speed_pos / 2.0) - ((sf->t2 - (sf->t + 1)) * (sf->t2 - (sf->t +
+             - 1)) * sf->acc_neg / 2.0);
+ 434   2              }
+ 435   1              
+ 436   1              if (sf->t >= sf->t2)
+ 437   1              {       
+ 438   2                      if(sf->prev_out < abs(sf->consign))
+ 439   2                      {
+ 440   3                              sf->t++;
+ 441   3                              
+ 442   3                              if(sf->prev_speed != 0)
+ 443   3                                      sf->prev_speed = 0;
+ 444   3              
+ 445   3                              consign = sf->prev_out + 1;// + 1 n'a aucun sens, + acc_pos ou acc_neg * temps semble etre la solution
+ 446   3                      }
+ 447   2              }
+ 448   1              else
+ 449   1                      sf->t++;
+ 450   1      
+ 451   1          sf->prev_out = consign;     
+ 452   1          *filtered_consign = sf->consign >= 0 ? consign : -consign;
+ 453   1      
+ 454   1          return 0;
+ 455   1      }
+ 456          
+ 457          //void speed_filter_init(struct speed_filter * sf,int16_t speed_pos,int16_t speed_neg,
+ 458          //                        int16_t acc_pos,int16_t acc_neg)
+ 459          //{
+ 460          //    sf->speed_pos=speed_pos;
+ 461          //    sf->speed_neg=speed_neg;
+ 462          //    sf->acc_pos=acc_pos;
+ 463          //    sf->acc_neg=acc_neg;
+ 464          //    sf->consign=0;
+ 465          //    sf->prev_out=0;
+ 466          //    sf->prev_speed=0;
+ 467          //      sf->t = 0;
+ 468          //      sf->t0 = 0;
+ 469          //      sf->t1 = 0;
+ 470          //      sf->t2 = 0;
+ 471          //}
+ 472          //
+ 473          //void speed_filter_set_consign(struct speed_filter * sf,int32_t *consign)//penser ? g?rer consigne n?gati
+             -ve,quelques optimisations possibles
+ 474          //{
+ 475          //      int32_t aire_A , aire_B , aire_C , t2_t1 , pt1 , absolute_consign;
+ 476          //    int32_t speed;
+ 477          //      
+ 478          //      sf->consign = *consign;
+ 479          //    absolute_consign = ( *consign >= 0 ? *consign : -*consign ) << RAMP_SHIFT;
+ 480          //
+ 481          //      sf->t0 =  sf->speed_pos / sf->acc_pos;
+ 482          //      t2_t1 = sf->speed_pos / sf->acc_neg;
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 9   
+
+ 483          //      aire_A = sf->t0 * sf->speed_pos / 2;
+ 484          //      aire_C = t2_t1 * sf->speed_pos / 2;
+ 485          //      aire_B = absolute_consign - aire_A - aire_C;
+ 486          //      pt1 = aire_B / sf->speed_pos  + sf->t0;
+ 487          //      sf->t2 = t2_t1 + pt1;
+ 488          //
+ 489          //      if ( pt1 < sf->t0 )//cas ou le trapèze est dégénéré
+ 490          //      { 
+ 491          //      speed = sqrt ( ( 2 * absolute_consign * ( sf->acc_neg * sf->acc_pos ) ) / ( sf->acc_neg + sf->acc_
+             -pos ) );
+ 492          //              sf->speed_pos = speed;
+ 493          //              sf->t0 = sf->t1 = speed/sf->acc_pos;
+ 494          //              sf->t2 = sf->t1 + speed/sf->acc_neg;
+ 495          //      }
+ 496          //      else
+ 497          //              sf->t1 = pt1;
+ 498          //      
+ 499          //      sf->t = 0;
+ 500          //      sf->prev_out = 0;
+ 501          //      sf->prev_speed = 0;
+ 502          //
+ 503          //      /*{
+ 504          //              char buff[51];
+ 505          //              
+ 506          //              sprintf ( buff , "new ramp consign %ld t0 %ld t1 %ld t2 %ld\r\n" , sf->consign , sf->t0 , sf->t1 , sf-
+             ->t2 );
+ 507          //              UART_1_PutString ( buff );
+ 508          //      }*/
+ 509          //}
+ 510          //
+ 511          //char speed_filter_do_filter ( struct speed_filter * sf , int32_t* filtered_consign)
+ 512          //{
+ 513          //      int32_t absolute_cons , cte = sf->speed_pos*sf->t0/2.0 + ( sf->t1 - sf->t0 ) * sf->speed_pos;;
+ 514          //      
+ 515          //    if ( sf->t < sf->t0 )
+ 516          //              sf->prev_speed += sf->acc_pos;
+ 517          //      else if ( sf->t < sf->t1 )
+ 518          //          sf->prev_speed = sf->speed_pos;
+ 519          //      else if ( sf->t < sf->t2 )
+ 520          //              sf->prev_speed -= sf->acc_neg;
+ 521          //      
+ 522          //      if ( sf->t >= sf->t2 )
+ 523          //      {       
+ 524          //              if (  sf->prev_out < abs ( sf->consign ) )
+ 525          //              {
+ 526          //                      sf->t++;
+ 527          //                      
+ 528          //                      if ( sf->prev_speed > 0 )
+ 529          //                              sf->prev_speed -= sf->acc_neg;
+ 530          //                              
+ 531          //                      if ( sf->prev_speed < 0 )
+ 532          //                              sf->prev_speed = 0;
+ 533          //              }
+ 534          //              else
+ 535          //              {
+ 536          //                      sf->prev_speed = 0;
+ 537          //                      sf->prev_out = sf->consign;
+ 538          //              }
+ 539          //      }
+ 540          //      else
+ 541          //              sf->t++;
+ 542          //
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 10  
+
+ 543          //    sf->prev_out += sf->prev_speed;
+ 544          //      absolute_cons = sf->prev_out >> RAMP_SHIFT;
+ 545          //      
+ 546          //      if ( sf->prev_speed > 0 )
+ 547          //      *filtered_consign = ( sf->consign >= 0 ? absolute_cons : -absolute_cons );
+ 548          //      else
+ 549          //              *filtered_consign = sf->consign;
+ 550          //      
+ 551          //      {
+ 552          //              char buff[51];
+ 553          //              
+ 554          //              sprintf ( buff , "new ramp consign_filtered %ld\r\n" , *filtered_consign );
+ 555          //              UART_1_PutString ( buff );
+ 556          //      }
+ 557          //      
+ 558          //    return 0;
+ 559          //}
+ 560          
+ 561          void speed_filter_stop(struct speed_filter* sf)
+ 562          {
+ 563   1              int32_t time_decc = (int32_t)(sf->prev_speed / sf->acc_neg);
+ 564   1              
+ 565   1              if(sf->t < sf->t1)
+ 566   1              {
+ 567   2                      if(sf->t < sf->t0)
+ 568   2                      {
+ 569   3                              sf->t0 = sf->t;
+ 570   3                              sf->t1 = sf->t;
+ 571   3                      }
+ 572   2                      else
+ 573   2                              sf->t1 = sf->t;
+ 574   2                              
+ 575   2                      sf->t2 = sf->t + time_decc;
+ 576   2                      sf->consign = sf->consign > 0 ? sf->prev_out + (int32_t)(time_decc * sf->prev_speed / 2) : -(sf->prev_ou
+             -t + (int32_t)(time_decc * sf->prev_speed / 2));
+ 577   2              }
+ 578   1      }
+ 579          
+ 580          void speed_filter_set_cinematic_parameter(struct speed_filter* sf, int16_t speed_pos, int16_t speed_neg, d
+             -ouble acc_pos, double acc_neg)
+ 581          {
+ 582   1              sf->speed_pos = speed_pos;
+ 583   1              sf->speed_neg = speed_neg;
+ 584   1              sf->acc_pos = acc_pos;
+ 585   1              sf->acc_neg = acc_neg;
+ 586   1      }
+ 587          
+ 588          /**
+ 589          * TODO 2013 Integrate Microb Quadramp
+ 590          *
+ 591          **/
+ 592          #endif
+ 593          //le speed change n'est pas nécessaire
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 11  
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION _speed_filter_init (BEGIN)
+                                           ; SOURCE LINE # 368
+0000 900000      R     MOV     DPTR,#sf
+0003 120000      E     LCALL   ?C?PSTXDATA
+0006 900000      R     MOV     DPTR,#speed_pos
+0009 EC                MOV     A,R4
+000A F0                MOVX    @DPTR,A
+000B A3                INC     DPTR
+000C ED                MOV     A,R5
+000D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 369
+                                           ; SOURCE LINE # 370
+000E 900000      R     MOV     DPTR,#speed_pos
+0011 E0                MOVX    A,@DPTR
+0012 FE                MOV     R6,A
+0013 A3                INC     DPTR
+0014 E0                MOVX    A,@DPTR
+0015 FF                MOV     R7,A
+0016 900000      R     MOV     DPTR,#sf
+0019 120000      E     LCALL   ?C?PLDXDATA
+001C EE                MOV     A,R6
+001D 8FF0              MOV     B,R7
+001F 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 371
+0022 900000      R     MOV     DPTR,#speed_neg
+0025 E0                MOVX    A,@DPTR
+0026 FE                MOV     R6,A
+0027 A3                INC     DPTR
+0028 E0                MOVX    A,@DPTR
+0029 FF                MOV     R7,A
+002A 900000      R     MOV     DPTR,#sf
+002D 120000      E     LCALL   ?C?PLDXDATA
+0030 E9                MOV     A,R1
+0031 2402              ADD     A,#02H
+0033 F9                MOV     R1,A
+0034 EA                MOV     A,R2
+0035 3400              ADDC    A,#00H
+0037 FA                MOV     R2,A
+0038 EE                MOV     A,R6
+0039 8FF0              MOV     B,R7
+003B 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 372
+003E 900000      R     MOV     DPTR,#acc_pos
+0041 120000      E     LCALL   ?C?LLDXDATA
+0044 900000      R     MOV     DPTR,#sf
+0047 120000      E     LCALL   ?C?PLDXDATA
+004A E9                MOV     A,R1
+004B 2404              ADD     A,#04H
+004D F9                MOV     R1,A
+004E EA                MOV     A,R2
+004F 3400              ADDC    A,#00H
+0051 FA                MOV     R2,A
+0052 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 373
+0055 900000      R     MOV     DPTR,#acc_neg
+0058 120000      E     LCALL   ?C?LLDXDATA
+005B 900000      R     MOV     DPTR,#sf
+005E 120000      E     LCALL   ?C?PLDXDATA
+0061 E9                MOV     A,R1
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 12  
+
+0062 2408              ADD     A,#08H
+0064 F9                MOV     R1,A
+0065 EA                MOV     A,R2
+0066 3400              ADDC    A,#00H
+0068 FA                MOV     R2,A
+0069 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 374
+006C 7F00              MOV     R7,#00H
+006E 7E00              MOV     R6,#00H
+0070 7D00              MOV     R5,#00H
+0072 7C00              MOV     R4,#00H
+0074 900000      R     MOV     DPTR,#sf
+0077 120000      E     LCALL   ?C?PLDXDATA
+007A E9                MOV     A,R1
+007B 240C              ADD     A,#0CH
+007D F9                MOV     R1,A
+007E EA                MOV     A,R2
+007F 3400              ADDC    A,#00H
+0081 FA                MOV     R2,A
+0082 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 375
+0085 7F00              MOV     R7,#00H
+0087 7E00              MOV     R6,#00H
+0089 7D00              MOV     R5,#00H
+008B 7C00              MOV     R4,#00H
+008D 900000      R     MOV     DPTR,#sf
+0090 120000      E     LCALL   ?C?PLDXDATA
+0093 E9                MOV     A,R1
+0094 2410              ADD     A,#010H
+0096 F9                MOV     R1,A
+0097 EA                MOV     A,R2
+0098 3400              ADDC    A,#00H
+009A FA                MOV     R2,A
+009B 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 376
+009E 7F00              MOV     R7,#00H
+00A0 7E00              MOV     R6,#00H
+00A2 7D00              MOV     R5,#00H
+00A4 7C00              MOV     R4,#00H
+00A6 900000      R     MOV     DPTR,#sf
+00A9 120000      E     LCALL   ?C?PLDXDATA
+00AC E9                MOV     A,R1
+00AD 2414              ADD     A,#014H
+00AF F9                MOV     R1,A
+00B0 EA                MOV     A,R2
+00B1 3400              ADDC    A,#00H
+00B3 FA                MOV     R2,A
+00B4 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 377
+00B7 7F00              MOV     R7,#00H
+00B9 7E00              MOV     R6,#00H
+00BB 7D00              MOV     R5,#00H
+00BD 7C00              MOV     R4,#00H
+00BF 900000      R     MOV     DPTR,#sf
+00C2 120000      E     LCALL   ?C?PLDXDATA
+00C5 E9                MOV     A,R1
+00C6 241A              ADD     A,#01AH
+00C8 F9                MOV     R1,A
+00C9 EA                MOV     A,R2
+00CA 3400              ADDC    A,#00H
+00CC FA                MOV     R2,A
+00CD 120000      E     LCALL   ?C?LSTPTR
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 13  
+
+                                           ; SOURCE LINE # 378
+00D0 900000      R     MOV     DPTR,#sf
+00D3 120000      E     LCALL   ?C?PLDXDATA
+00D6 E9                MOV     A,R1
+00D7 241E              ADD     A,#01EH
+00D9 F9                MOV     R1,A
+00DA EA                MOV     A,R2
+00DB 3400              ADDC    A,#00H
+00DD FA                MOV     R2,A
+00DE E4                CLR     A
+00DF 75F000            MOV     B,#00H
+00E2 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 379
+00E5 900000      R     MOV     DPTR,#sf
+00E8 120000      E     LCALL   ?C?PLDXDATA
+00EB E9                MOV     A,R1
+00EC 2420              ADD     A,#020H
+00EE F9                MOV     R1,A
+00EF EA                MOV     A,R2
+00F0 3400              ADDC    A,#00H
+00F2 FA                MOV     R2,A
+00F3 E4                CLR     A
+00F4 75F000            MOV     B,#00H
+00F7 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 380
+00FA 900000      R     MOV     DPTR,#sf
+00FD 120000      E     LCALL   ?C?PLDXDATA
+0100 E9                MOV     A,R1
+0101 2422              ADD     A,#022H
+0103 F9                MOV     R1,A
+0104 EA                MOV     A,R2
+0105 3400              ADDC    A,#00H
+0107 FA                MOV     R2,A
+0108 E4                CLR     A
+0109 75F000            MOV     B,#00H
+010C 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 381
+010F 22                RET     
+             ; FUNCTION _speed_filter_init (END)
+
+             ; FUNCTION _speed_filter_set_consign (BEGIN)
+                                           ; SOURCE LINE # 383
+0000 900000      R     MOV     DPTR,#sf
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 384
+                                           ; SOURCE LINE # 388
+0006 900000      R     MOV     DPTR,#consign
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C 120000      E     LCALL   ?C?LLDPTR
+000F 900000      R     MOV     DPTR,#sf
+0012 120000      E     LCALL   ?C?PLDXDATA
+0015 E9                MOV     A,R1
+0016 240C              ADD     A,#0CH
+0018 F9                MOV     R1,A
+0019 EA                MOV     A,R2
+001A 3400              ADDC    A,#00H
+001C FA                MOV     R2,A
+001D 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 389
+0020 900000      R     MOV     DPTR,#consign
+0023 120000      E     LCALL   ?C?PLDXDATA
+0026 120000      E     LCALL   ?C?LLDPTR
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 14  
+
+0029 7B00              MOV     R3,#00H
+002B 7A00              MOV     R2,#00H
+002D 7900              MOV     R1,#00H
+002F 7800              MOV     R0,#00H
+0031 D3                SETB    C
+0032 120000      E     LCALL   ?C?SLCMP
+0035 500B              JNC     ?C0002
+0037 900000      R     MOV     DPTR,#consign
+003A 120000      E     LCALL   ?C?PLDXDATA
+003D 120000      E     LCALL   ?C?LLDPTR
+0040 800C              SJMP    ?C0003
+0042         ?C0002:
+0042 900000      R     MOV     DPTR,#consign
+0045 120000      E     LCALL   ?C?PLDXDATA
+0048 120000      E     LCALL   ?C?LLDPTR
+004B 120000      E     LCALL   ?C?LNEG
+004E         ?C0003:
+004E 900000      R     MOV     DPTR,#absolute_consign
+0051 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 391
+0054 900000      R     MOV     DPTR,#sf
+0057 120000      E     LCALL   ?C?PLDXDATA
+005A E9                MOV     A,R1
+005B 2404              ADD     A,#04H
+005D F9                MOV     R1,A
+005E EA                MOV     A,R2
+005F 3400              ADDC    A,#00H
+0061 FA                MOV     R2,A
+0062 120000      E     LCALL   ?C?LLDPTR0
+0065 C000              PUSH    AR0
+0067 C001              PUSH    AR1
+0069 C002              PUSH    AR2
+006B C003              PUSH    AR3
+006D 900000      R     MOV     DPTR,#sf
+0070 120000      E     LCALL   ?C?PLDXDATA
+0073 120000      E     LCALL   ?C?ILDPTR
+0076 FD                MOV     R5,A
+0077 ACF0              MOV     R4,B
+0079 EC                MOV     A,R4
+007A 120000      E     LCALL   ?C?FCASTI
+007D D003              POP     AR3
+007F D002              POP     AR2
+0081 D001              POP     AR1
+0083 D000              POP     AR0
+0085 120000      E     LCALL   ?C?FPDIV
+0088 120000      E     LCALL   ?C?CASTF
+008B 900000      R     MOV     DPTR,#sf
+008E 120000      E     LCALL   ?C?PLDXDATA
+0091 E9                MOV     A,R1
+0092 241E              ADD     A,#01EH
+0094 F9                MOV     R1,A
+0095 EA                MOV     A,R2
+0096 3400              ADDC    A,#00H
+0098 FA                MOV     R2,A
+0099 EE                MOV     A,R6
+009A 8FF0              MOV     B,R7
+009C 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 392
+009F 900000      R     MOV     DPTR,#sf
+00A2 120000      E     LCALL   ?C?PLDXDATA
+00A5 E9                MOV     A,R1
+00A6 2408              ADD     A,#08H
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 15  
+
+00A8 F9                MOV     R1,A
+00A9 EA                MOV     A,R2
+00AA 3400              ADDC    A,#00H
+00AC FA                MOV     R2,A
+00AD 120000      E     LCALL   ?C?LLDPTR0
+00B0 C000              PUSH    AR0
+00B2 C001              PUSH    AR1
+00B4 C002              PUSH    AR2
+00B6 C003              PUSH    AR3
+00B8 900000      R     MOV     DPTR,#sf
+00BB 120000      E     LCALL   ?C?PLDXDATA
+00BE 120000      E     LCALL   ?C?ILDPTR
+00C1 FD                MOV     R5,A
+00C2 ACF0              MOV     R4,B
+00C4 EC                MOV     A,R4
+00C5 120000      E     LCALL   ?C?FCASTI
+00C8 D003              POP     AR3
+00CA D002              POP     AR2
+00CC D001              POP     AR1
+00CE D000              POP     AR0
+00D0 120000      E     LCALL   ?C?FPDIV
+00D3 120000      E     LCALL   ?C?CASTF
+00D6 900000      R     MOV     DPTR,#t2_t1
+00D9 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 393
+00DC 900000      R     MOV     DPTR,#sf
+00DF 120000      E     LCALL   ?C?PLDXDATA
+00E2 E9                MOV     A,R1
+00E3 241E              ADD     A,#01EH
+00E5 F9                MOV     R1,A
+00E6 EA                MOV     A,R2
+00E7 3400              ADDC    A,#00H
+00E9 FA                MOV     R2,A
+00EA 120000      E     LCALL   ?C?ILDPTR
+00ED FF                MOV     R7,A
+00EE AEF0              MOV     R6,B
+00F0 900000      R     MOV     DPTR,#sf
+00F3 120000      E     LCALL   ?C?PLDXDATA
+00F6 120000      E     LCALL   ?C?ILDPTR
+00F9 FD                MOV     R5,A
+00FA ACF0              MOV     R4,B
+00FC 120000      E     LCALL   ?C?IMUL
+00FF 7C00              MOV     R4,#00H
+0101 7D02              MOV     R5,#02H
+0103 120000      E     LCALL   ?C?SIDIV
+0106 EE                MOV     A,R6
+0107 33                RLC     A
+0108 95E0              SUBB    A,ACC
+010A FD                MOV     R5,A
+010B FC                MOV     R4,A
+010C 900000      R     MOV     DPTR,#aire_A
+010F 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 394
+0112 900000      R     MOV     DPTR,#sf
+0115 120000      E     LCALL   ?C?PLDXDATA
+0118 120000      E     LCALL   ?C?ILDPTR
+011B FF                MOV     R7,A
+011C AEF0              MOV     R6,B
+011E EE                MOV     A,R6
+011F 33                RLC     A
+0120 95E0              SUBB    A,ACC
+0122 FD                MOV     R5,A
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 16  
+
+0123 FC                MOV     R4,A
+0124 900000      R     MOV     DPTR,#t2_t1
+0127 120000      E     LCALL   ?C?LLDXDATA0
+012A 120000      E     LCALL   ?C?LMUL
+012D 7B02              MOV     R3,#02H
+012F 7A00              MOV     R2,#00H
+0131 7900              MOV     R1,#00H
+0133 7800              MOV     R0,#00H
+0135 120000      E     LCALL   ?C?SLDIV
+0138 900000      R     MOV     DPTR,#aire_C
+013B 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 395
+013E 900000      R     MOV     DPTR,#aire_A
+0141 120000      E     LCALL   ?C?LLDXDATA0
+0144 900000      R     MOV     DPTR,#absolute_consign
+0147 120000      E     LCALL   ?C?LLDXDATA
+014A 120000      E     LCALL   ?C?LSUB
+014D 900000      R     MOV     DPTR,#aire_C
+0150 120000      E     LCALL   ?C?LLDXDATA0
+0153 120000      E     LCALL   ?C?LSUB
+0156 900000      R     MOV     DPTR,#aire_B
+0159 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 396
+015C 900000      R     MOV     DPTR,#sf
+015F 120000      E     LCALL   ?C?PLDXDATA
+0162 E9                MOV     A,R1
+0163 241E              ADD     A,#01EH
+0165 F9                MOV     R1,A
+0166 EA                MOV     A,R2
+0167 3400              ADDC    A,#00H
+0169 FA                MOV     R2,A
+016A 120000      E     LCALL   ?C?ILDPTR
+016D FF                MOV     R7,A
+016E AEF0              MOV     R6,B
+0170 EE                MOV     A,R6
+0171 33                RLC     A
+0172 95E0              SUBB    A,ACC
+0174 FD                MOV     R5,A
+0175 FC                MOV     R4,A
+0176 C004              PUSH    AR4
+0178 C005              PUSH    AR5
+017A C006              PUSH    AR6
+017C C007              PUSH    AR7
+017E 900000      R     MOV     DPTR,#sf
+0181 120000      E     LCALL   ?C?PLDXDATA
+0184 120000      E     LCALL   ?C?ILDPTR
+0187 FF                MOV     R7,A
+0188 AEF0              MOV     R6,B
+018A AB07              MOV     R3,AR7
+018C AA06              MOV     R2,AR6
+018E EA                MOV     A,R2
+018F 33                RLC     A
+0190 95E0              SUBB    A,ACC
+0192 F9                MOV     R1,A
+0193 F8                MOV     R0,A
+0194 900000      R     MOV     DPTR,#aire_B
+0197 120000      E     LCALL   ?C?LLDXDATA
+019A 120000      E     LCALL   ?C?SLDIV
+019D A804              MOV     R0,AR4
+019F A905              MOV     R1,AR5
+01A1 AA06              MOV     R2,AR6
+01A3 AB07              MOV     R3,AR7
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 17  
+
+01A5 D007              POP     AR7
+01A7 D006              POP     AR6
+01A9 D005              POP     AR5
+01AB D004              POP     AR4
+01AD 120000      E     LCALL   ?C?LADD
+01B0 900000      R     MOV     DPTR,#pt1
+01B3 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 397
+01B6 900000      R     MOV     DPTR,#pt1
+01B9 120000      E     LCALL   ?C?LLDXDATA
+01BC AB07              MOV     R3,AR7
+01BE AA06              MOV     R2,AR6
+01C0 900000      R     MOV     DPTR,#t2_t1
+01C3 120000      E     LCALL   ?C?LLDXDATA
+01C6 EF                MOV     A,R7
+01C7 2B                ADD     A,R3
+01C8 FF                MOV     R7,A
+01C9 EE                MOV     A,R6
+01CA 3A                ADDC    A,R2
+01CB FE                MOV     R6,A
+01CC 900000      R     MOV     DPTR,#sf
+01CF 120000      E     LCALL   ?C?PLDXDATA
+01D2 E9                MOV     A,R1
+01D3 2422              ADD     A,#022H
+01D5 F9                MOV     R1,A
+01D6 EA                MOV     A,R2
+01D7 3400              ADDC    A,#00H
+01D9 FA                MOV     R2,A
+01DA EE                MOV     A,R6
+01DB 8FF0              MOV     B,R7
+01DD 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 399
+01E0 900000      R     MOV     DPTR,#sf
+01E3 120000      E     LCALL   ?C?PLDXDATA
+01E6 E9                MOV     A,R1
+01E7 241E              ADD     A,#01EH
+01E9 F9                MOV     R1,A
+01EA EA                MOV     A,R2
+01EB 3400              ADDC    A,#00H
+01ED FA                MOV     R2,A
+01EE 120000      E     LCALL   ?C?ILDPTR
+01F1 FF                MOV     R7,A
+01F2 AEF0              MOV     R6,B
+01F4 EE                MOV     A,R6
+01F5 33                RLC     A
+01F6 95E0              SUBB    A,ACC
+01F8 FD                MOV     R5,A
+01F9 FC                MOV     R4,A
+01FA 900000      R     MOV     DPTR,#pt1
+01FD 120000      E     LCALL   ?C?LLDXDATA0
+0200 C3                CLR     C
+0201 120000      E     LCALL   ?C?SLCMP
+0204 4003              JC      $ + 5H
+0206 020000      R     LJMP    ?C0004
+                                           ; SOURCE LINE # 400
+                                           ; SOURCE LINE # 401
+0209 900000      R     MOV     DPTR,#sf
+020C 120000      E     LCALL   ?C?PLDXDATA
+020F E9                MOV     A,R1
+0210 2404              ADD     A,#04H
+0212 F9                MOV     R1,A
+0213 EA                MOV     A,R2
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 18  
+
+0214 3400              ADDC    A,#00H
+0216 FA                MOV     R2,A
+0217 120000      E     LCALL   ?C?LLDPTR
+021A 900000      R     MOV     DPTR,#sf
+021D 120000      E     LCALL   ?C?PLDXDATA
+0220 E9                MOV     A,R1
+0221 2408              ADD     A,#08H
+0223 F9                MOV     R1,A
+0224 EA                MOV     A,R2
+0225 3400              ADDC    A,#00H
+0227 FA                MOV     R2,A
+0228 120000      E     LCALL   ?C?LLDPTR0
+022B 120000      E     LCALL   ?C?FPMUL
+022E C004              PUSH    AR4
+0230 C005              PUSH    AR5
+0232 C006              PUSH    AR6
+0234 C007              PUSH    AR7
+0236 7F02              MOV     R7,#02H
+0238 7E00              MOV     R6,#00H
+023A 7D00              MOV     R5,#00H
+023C 7C00              MOV     R4,#00H
+023E 900000      R     MOV     DPTR,#absolute_consign
+0241 120000      E     LCALL   ?C?LLDXDATA0
+0244 120000      E     LCALL   ?C?LMUL
+0247 EC                MOV     A,R4
+0248 120000      E     LCALL   ?C?FCASTL
+024B A804              MOV     R0,AR4
+024D A905              MOV     R1,AR5
+024F AA06              MOV     R2,AR6
+0251 AB07              MOV     R3,AR7
+0253 D007              POP     AR7
+0255 D006              POP     AR6
+0257 D005              POP     AR5
+0259 D004              POP     AR4
+025B 120000      E     LCALL   ?C?FPMUL
+025E C004              PUSH    AR4
+0260 C005              PUSH    AR5
+0262 C006              PUSH    AR6
+0264 C007              PUSH    AR7
+0266 900000      R     MOV     DPTR,#sf
+0269 120000      E     LCALL   ?C?PLDXDATA
+026C E9                MOV     A,R1
+026D 2404              ADD     A,#04H
+026F F9                MOV     R1,A
+0270 EA                MOV     A,R2
+0271 3400              ADDC    A,#00H
+0273 FA                MOV     R2,A
+0274 120000      E     LCALL   ?C?LLDPTR
+0277 900000      R     MOV     DPTR,#sf
+027A 120000      E     LCALL   ?C?PLDXDATA
+027D E9                MOV     A,R1
+027E 2408              ADD     A,#08H
+0280 F9                MOV     R1,A
+0281 EA                MOV     A,R2
+0282 3400              ADDC    A,#00H
+0284 FA                MOV     R2,A
+0285 120000      E     LCALL   ?C?LLDPTR0
+0288 120000      E     LCALL   ?C?FPADD
+028B A804              MOV     R0,AR4
+028D A905              MOV     R1,AR5
+028F AA06              MOV     R2,AR6
+0291 AB07              MOV     R3,AR7
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 19  
+
+0293 D007              POP     AR7
+0295 D006              POP     AR6
+0297 D005              POP     AR5
+0299 D004              POP     AR4
+029B 120000      E     LCALL   ?C?FPDIV
+029E 120000      E     LCALL   _sqrt
+02A1 900000      R     MOV     DPTR,#speed
+02A4 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 402
+02A7 900000      R     MOV     DPTR,#speed
+02AA 120000      E     LCALL   ?C?LLDXDATA
+02AD 120000      E     LCALL   ?C?CASTF
+02B0 900000      R     MOV     DPTR,#sf
+02B3 120000      E     LCALL   ?C?PLDXDATA
+02B6 EE                MOV     A,R6
+02B7 8FF0              MOV     B,R7
+02B9 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 403
+02BC 900000      R     MOV     DPTR,#sf
+02BF 120000      E     LCALL   ?C?PLDXDATA
+02C2 E9                MOV     A,R1
+02C3 2404              ADD     A,#04H
+02C5 F9                MOV     R1,A
+02C6 EA                MOV     A,R2
+02C7 3400              ADDC    A,#00H
+02C9 FA                MOV     R2,A
+02CA 120000      E     LCALL   ?C?LLDPTR0
+02CD 900000      R     MOV     DPTR,#speed
+02D0 120000      E     LCALL   ?C?LLDXDATA
+02D3 120000      E     LCALL   ?C?FPDIV
+02D6 120000      E     LCALL   ?C?CASTF
+02D9 900000      R     MOV     DPTR,#sf
+02DC 120000      E     LCALL   ?C?PLDXDATA
+02DF E9                MOV     A,R1
+02E0 2420              ADD     A,#020H
+02E2 F9                MOV     R1,A
+02E3 EA                MOV     A,R2
+02E4 3400              ADDC    A,#00H
+02E6 FA                MOV     R2,A
+02E7 EE                MOV     A,R6
+02E8 8FF0              MOV     B,R7
+02EA FE                MOV     R6,A
+02EB AFF0              MOV     R7,B
+02ED 120000      E     LCALL   ?C?ISTPTR
+02F0 900000      R     MOV     DPTR,#sf
+02F3 120000      E     LCALL   ?C?PLDXDATA
+02F6 E9                MOV     A,R1
+02F7 241E              ADD     A,#01EH
+02F9 F9                MOV     R1,A
+02FA EA                MOV     A,R2
+02FB 3400              ADDC    A,#00H
+02FD FA                MOV     R2,A
+02FE EE                MOV     A,R6
+02FF 8FF0              MOV     B,R7
+0301 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 404
+0304 900000      R     MOV     DPTR,#sf
+0307 120000      E     LCALL   ?C?PLDXDATA
+030A E9                MOV     A,R1
+030B 2408              ADD     A,#08H
+030D F9                MOV     R1,A
+030E EA                MOV     A,R2
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 20  
+
+030F 3400              ADDC    A,#00H
+0311 FA                MOV     R2,A
+0312 120000      E     LCALL   ?C?LLDPTR0
+0315 900000      R     MOV     DPTR,#speed
+0318 120000      E     LCALL   ?C?LLDXDATA
+031B 120000      E     LCALL   ?C?FPDIV
+031E C004              PUSH    AR4
+0320 C005              PUSH    AR5
+0322 C006              PUSH    AR6
+0324 C007              PUSH    AR7
+0326 900000      R     MOV     DPTR,#sf
+0329 120000      E     LCALL   ?C?PLDXDATA
+032C E9                MOV     A,R1
+032D 2420              ADD     A,#020H
+032F F9                MOV     R1,A
+0330 EA                MOV     A,R2
+0331 3400              ADDC    A,#00H
+0333 FA                MOV     R2,A
+0334 120000      E     LCALL   ?C?ILDPTR
+0337 FD                MOV     R5,A
+0338 ACF0              MOV     R4,B
+033A EC                MOV     A,R4
+033B 120000      E     LCALL   ?C?FCASTI
+033E A804              MOV     R0,AR4
+0340 A905              MOV     R1,AR5
+0342 AA06              MOV     R2,AR6
+0344 AB07              MOV     R3,AR7
+0346 D007              POP     AR7
+0348 D006              POP     AR6
+034A D005              POP     AR5
+034C D004              POP     AR4
+034E 120000      E     LCALL   ?C?FPADD
+0351 120000      E     LCALL   ?C?CASTF
+0354 900000      R     MOV     DPTR,#sf
+0357 120000      E     LCALL   ?C?PLDXDATA
+035A E9                MOV     A,R1
+035B 2422              ADD     A,#022H
+035D F9                MOV     R1,A
+035E EA                MOV     A,R2
+035F 3400              ADDC    A,#00H
+0361 FA                MOV     R2,A
+0362 EE                MOV     A,R6
+0363 8FF0              MOV     B,R7
+0365 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 405
+0368 801A              SJMP    ?C0005
+036A         ?C0004:
+                                           ; SOURCE LINE # 407
+036A 900000      R     MOV     DPTR,#pt1
+036D 120000      E     LCALL   ?C?LLDXDATA
+0370 900000      R     MOV     DPTR,#sf
+0373 120000      E     LCALL   ?C?PLDXDATA
+0376 E9                MOV     A,R1
+0377 2420              ADD     A,#020H
+0379 F9                MOV     R1,A
+037A EA                MOV     A,R2
+037B 3400              ADDC    A,#00H
+037D FA                MOV     R2,A
+037E EE                MOV     A,R6
+037F 8FF0              MOV     B,R7
+0381 120000      E     LCALL   ?C?ISTPTR
+0384         ?C0005:
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 21  
+
+                                           ; SOURCE LINE # 409
+0384 7F00              MOV     R7,#00H
+0386 7E00              MOV     R6,#00H
+0388 7D00              MOV     R5,#00H
+038A 7C00              MOV     R4,#00H
+038C 900000      R     MOV     DPTR,#sf
+038F 120000      E     LCALL   ?C?PLDXDATA
+0392 E9                MOV     A,R1
+0393 241A              ADD     A,#01AH
+0395 F9                MOV     R1,A
+0396 EA                MOV     A,R2
+0397 3400              ADDC    A,#00H
+0399 FA                MOV     R2,A
+039A 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 410
+039D 7F00              MOV     R7,#00H
+039F 7E00              MOV     R6,#00H
+03A1 7D00              MOV     R5,#00H
+03A3 7C00              MOV     R4,#00H
+03A5 900000      R     MOV     DPTR,#sf
+03A8 120000      E     LCALL   ?C?PLDXDATA
+03AB E9                MOV     A,R1
+03AC 2414              ADD     A,#014H
+03AE F9                MOV     R1,A
+03AF EA                MOV     A,R2
+03B0 3400              ADDC    A,#00H
+03B2 FA                MOV     R2,A
+03B3 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 411
+03B6 7F00              MOV     R7,#00H
+03B8 7E00              MOV     R6,#00H
+03BA 7D00              MOV     R5,#00H
+03BC 7C00              MOV     R4,#00H
+03BE 900000      R     MOV     DPTR,#sf
+03C1 120000      E     LCALL   ?C?PLDXDATA
+03C4 E9                MOV     A,R1
+03C5 2410              ADD     A,#010H
+03C7 F9                MOV     R1,A
+03C8 EA                MOV     A,R2
+03C9 3400              ADDC    A,#00H
+03CB FA                MOV     R2,A
+03CC 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 412
+03CF 22                RET     
+             ; FUNCTION _speed_filter_set_consign (END)
+
+             ; FUNCTION _speed_filter_do_filter (BEGIN)
+                                           ; SOURCE LINE # 415
+0000 900000      R     MOV     DPTR,#sf
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 416
+                                           ; SOURCE LINE # 417
+0006 900000      R     MOV     DPTR,#sf
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 2410              ADD     A,#010H
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3400              ADDC    A,#00H
+0013 FA                MOV     R2,A
+0014 120000      E     LCALL   ?C?LLDPTR
+0017 EC                MOV     A,R4
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 22  
+
+0018 120000      E     LCALL   ?C?FCASTL
+001B 900000      R     MOV     DPTR,#consign
+001E 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 418
+0021 900000      R     MOV     DPTR,#sf
+0024 120000      E     LCALL   ?C?PLDXDATA
+0027 E9                MOV     A,R1
+0028 241E              ADD     A,#01EH
+002A F9                MOV     R1,A
+002B EA                MOV     A,R2
+002C 3400              ADDC    A,#00H
+002E FA                MOV     R2,A
+002F 120000      E     LCALL   ?C?ILDPTR
+0032 FF                MOV     R7,A
+0033 AEF0              MOV     R6,B
+0035 900000      R     MOV     DPTR,#sf
+0038 120000      E     LCALL   ?C?PLDXDATA
+003B E9                MOV     A,R1
+003C 2420              ADD     A,#020H
+003E F9                MOV     R1,A
+003F EA                MOV     A,R2
+0040 3400              ADDC    A,#00H
+0042 FA                MOV     R2,A
+0043 120000      E     LCALL   ?C?ILDPTR
+0046 FD                MOV     R5,A
+0047 ACF0              MOV     R4,B
+0049 C3                CLR     C
+004A ED                MOV     A,R5
+004B 9F                SUBB    A,R7
+004C FF                MOV     R7,A
+004D EC                MOV     A,R4
+004E 9E                SUBB    A,R6
+004F FE                MOV     R6,A
+0050 900000      R     MOV     DPTR,#sf
+0053 120000      E     LCALL   ?C?PLDXDATA
+0056 120000      E     LCALL   ?C?ILDPTR
+0059 FD                MOV     R5,A
+005A ACF0              MOV     R4,B
+005C 120000      E     LCALL   ?C?IMUL
+005F AC06              MOV     R4,AR6
+0061 AD07              MOV     R5,AR7
+0063 EC                MOV     A,R4
+0064 120000      E     LCALL   ?C?FCASTI
+0067 C004              PUSH    AR4
+0069 C005              PUSH    AR5
+006B C006              PUSH    AR6
+006D C007              PUSH    AR7
+006F 900000      R     MOV     DPTR,#sf
+0072 120000      E     LCALL   ?C?PLDXDATA
+0075 E9                MOV     A,R1
+0076 241E              ADD     A,#01EH
+0078 F9                MOV     R1,A
+0079 EA                MOV     A,R2
+007A 3400              ADDC    A,#00H
+007C FA                MOV     R2,A
+007D 120000      E     LCALL   ?C?ILDPTR
+0080 FD                MOV     R5,A
+0081 ACF0              MOV     R4,B
+0083 900000      R     MOV     DPTR,#sf
+0086 120000      E     LCALL   ?C?PLDXDATA
+0089 120000      E     LCALL   ?C?ILDPTR
+008C FF                MOV     R7,A
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 23  
+
+008D AEF0              MOV     R6,B
+008F 120000      E     LCALL   ?C?IMUL
+0092 AC06              MOV     R4,AR6
+0094 AD07              MOV     R5,AR7
+0096 EC                MOV     A,R4
+0097 120000      E     LCALL   ?C?FCASTI
+009A 7B00              MOV     R3,#00H
+009C 7A00              MOV     R2,#00H
+009E 7900              MOV     R1,#00H
+00A0 7840              MOV     R0,#040H
+00A2 120000      E     LCALL   ?C?FPDIV
+00A5 A804              MOV     R0,AR4
+00A7 A905              MOV     R1,AR5
+00A9 AA06              MOV     R2,AR6
+00AB AB07              MOV     R3,AR7
+00AD D007              POP     AR7
+00AF D006              POP     AR6
+00B1 D005              POP     AR5
+00B3 D004              POP     AR4
+00B5 120000      E     LCALL   ?C?FPADD
+00B8 120000      E     LCALL   ?C?CASTF
+00BB 900000      R     MOV     DPTR,#cte
+00BE EE                MOV     A,R6
+00BF F0                MOVX    @DPTR,A
+00C0 A3                INC     DPTR
+00C1 EF                MOV     A,R7
+00C2 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 420
+00C3 900000      R     MOV     DPTR,#sf
+00C6 120000      E     LCALL   ?C?PLDXDATA
+00C9 E9                MOV     A,R1
+00CA 241E              ADD     A,#01EH
+00CC F9                MOV     R1,A
+00CD EA                MOV     A,R2
+00CE 3400              ADDC    A,#00H
+00D0 FA                MOV     R2,A
+00D1 120000      E     LCALL   ?C?ILDPTR
+00D4 FF                MOV     R7,A
+00D5 AEF0              MOV     R6,B
+00D7 EE                MOV     A,R6
+00D8 33                RLC     A
+00D9 95E0              SUBB    A,ACC
+00DB FD                MOV     R5,A
+00DC FC                MOV     R4,A
+00DD 900000      R     MOV     DPTR,#sf
+00E0 120000      E     LCALL   ?C?PLDXDATA
+00E3 E9                MOV     A,R1
+00E4 241A              ADD     A,#01AH
+00E6 F9                MOV     R1,A
+00E7 EA                MOV     A,R2
+00E8 3400              ADDC    A,#00H
+00EA FA                MOV     R2,A
+00EB 120000      E     LCALL   ?C?LLDPTR0
+00EE C3                CLR     C
+00EF 120000      E     LCALL   ?C?ULCMP
+00F2 4003              JC      $ + 5H
+00F4 020000      R     LJMP    ?C0007
+                                           ; SOURCE LINE # 421
+                                           ; SOURCE LINE # 422
+00F7 900000      R     MOV     DPTR,#sf
+00FA 120000      E     LCALL   ?C?PLDXDATA
+00FD E9                MOV     A,R1
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 24  
+
+00FE 241A              ADD     A,#01AH
+0100 F9                MOV     R1,A
+0101 EA                MOV     A,R2
+0102 3400              ADDC    A,#00H
+0104 FA                MOV     R2,A
+0105 120000      E     LCALL   ?C?LLDPTR
+0108 EF                MOV     A,R7
+0109 2401              ADD     A,#01H
+010B FF                MOV     R7,A
+010C EE                MOV     A,R6
+010D 3400              ADDC    A,#00H
+010F FE                MOV     R6,A
+0110 ED                MOV     A,R5
+0111 3400              ADDC    A,#00H
+0113 FD                MOV     R5,A
+0114 EC                MOV     A,R4
+0115 3400              ADDC    A,#00H
+0117 FC                MOV     R4,A
+0118 E4                CLR     A
+0119 120000      E     LCALL   ?C?FCASTL
+011C 900000      R     MOV     DPTR,#sf
+011F 120000      E     LCALL   ?C?PLDXDATA
+0122 E9                MOV     A,R1
+0123 2404              ADD     A,#04H
+0125 F9                MOV     R1,A
+0126 EA                MOV     A,R2
+0127 3400              ADDC    A,#00H
+0129 FA                MOV     R2,A
+012A 120000      E     LCALL   ?C?LLDPTR0
+012D 120000      E     LCALL   ?C?FPMUL
+0130 120000      E     LCALL   ?C?CASTF
+0133 900000      R     MOV     DPTR,#sf
+0136 120000      E     LCALL   ?C?PLDXDATA
+0139 E9                MOV     A,R1
+013A 2414              ADD     A,#014H
+013C F9                MOV     R1,A
+013D EA                MOV     A,R2
+013E 3400              ADDC    A,#00H
+0140 FA                MOV     R2,A
+0141 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 423
+0144 900000      R     MOV     DPTR,#sf
+0147 120000      E     LCALL   ?C?PLDXDATA
+014A E9                MOV     A,R1
+014B 241A              ADD     A,#01AH
+014D F9                MOV     R1,A
+014E EA                MOV     A,R2
+014F 3400              ADDC    A,#00H
+0151 FA                MOV     R2,A
+0152 120000      E     LCALL   ?C?LLDPTR
+0155 EF                MOV     A,R7
+0156 2401              ADD     A,#01H
+0158 FF                MOV     R7,A
+0159 EE                MOV     A,R6
+015A 3400              ADDC    A,#00H
+015C FE                MOV     R6,A
+015D ED                MOV     A,R5
+015E 3400              ADDC    A,#00H
+0160 FD                MOV     R5,A
+0161 EC                MOV     A,R4
+0162 3400              ADDC    A,#00H
+0164 FC                MOV     R4,A
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 25  
+
+0165 C004              PUSH    AR4
+0167 C005              PUSH    AR5
+0169 C006              PUSH    AR6
+016B C007              PUSH    AR7
+016D 900000      R     MOV     DPTR,#sf
+0170 120000      E     LCALL   ?C?PLDXDATA
+0173 E9                MOV     A,R1
+0174 241A              ADD     A,#01AH
+0176 F9                MOV     R1,A
+0177 EA                MOV     A,R2
+0178 3400              ADDC    A,#00H
+017A FA                MOV     R2,A
+017B 120000      E     LCALL   ?C?LLDPTR
+017E EF                MOV     A,R7
+017F 2401              ADD     A,#01H
+0181 FB                MOV     R3,A
+0182 EE                MOV     A,R6
+0183 3400              ADDC    A,#00H
+0185 FA                MOV     R2,A
+0186 ED                MOV     A,R5
+0187 3400              ADDC    A,#00H
+0189 F9                MOV     R1,A
+018A EC                MOV     A,R4
+018B 3400              ADDC    A,#00H
+018D F8                MOV     R0,A
+018E D007              POP     AR7
+0190 D006              POP     AR6
+0192 D005              POP     AR5
+0194 D004              POP     AR4
+0196 120000      E     LCALL   ?C?LMUL
+0199 E4                CLR     A
+019A 120000      E     LCALL   ?C?FCASTL
+019D 900000      R     MOV     DPTR,#sf
+01A0 120000      E     LCALL   ?C?PLDXDATA
+01A3 E9                MOV     A,R1
+01A4 2404              ADD     A,#04H
+01A6 F9                MOV     R1,A
+01A7 EA                MOV     A,R2
+01A8 3400              ADDC    A,#00H
+01AA FA                MOV     R2,A
+01AB 120000      E     LCALL   ?C?LLDPTR0
+01AE 120000      E     LCALL   ?C?FPMUL
+01B1 7B00              MOV     R3,#00H
+01B3 7A00              MOV     R2,#00H
+01B5 7900              MOV     R1,#00H
+01B7 7840              MOV     R0,#040H
+01B9 120000      E     LCALL   ?C?FPDIV
+01BC 900000      R     MOV     DPTR,#consign
+01BF 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 424
+01C2 020000      R     LJMP    ?C0008
+01C5         ?C0007:
+                                           ; SOURCE LINE # 425
+01C5 900000      R     MOV     DPTR,#sf
+01C8 120000      E     LCALL   ?C?PLDXDATA
+01CB E9                MOV     A,R1
+01CC 2420              ADD     A,#020H
+01CE F9                MOV     R1,A
+01CF EA                MOV     A,R2
+01D0 3400              ADDC    A,#00H
+01D2 FA                MOV     R2,A
+01D3 120000      E     LCALL   ?C?ILDPTR
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 26  
+
+01D6 FF                MOV     R7,A
+01D7 AEF0              MOV     R6,B
+01D9 EE                MOV     A,R6
+01DA 33                RLC     A
+01DB 95E0              SUBB    A,ACC
+01DD FD                MOV     R5,A
+01DE FC                MOV     R4,A
+01DF 900000      R     MOV     DPTR,#sf
+01E2 120000      E     LCALL   ?C?PLDXDATA
+01E5 E9                MOV     A,R1
+01E6 241A              ADD     A,#01AH
+01E8 F9                MOV     R1,A
+01E9 EA                MOV     A,R2
+01EA 3400              ADDC    A,#00H
+01EC FA                MOV     R2,A
+01ED 120000      E     LCALL   ?C?LLDPTR0
+01F0 C3                CLR     C
+01F1 120000      E     LCALL   ?C?ULCMP
+01F4 4003              JC      $ + 5H
+01F6 020000      R     LJMP    ?C0009
+                                           ; SOURCE LINE # 426
+                                           ; SOURCE LINE # 427
+01F9 900000      R     MOV     DPTR,#sf
+01FC 120000      E     LCALL   ?C?PLDXDATA
+01FF 120000      E     LCALL   ?C?ILDPTR
+0202 FF                MOV     R7,A
+0203 AEF0              MOV     R6,B
+0205 EE                MOV     A,R6
+0206 33                RLC     A
+0207 95E0              SUBB    A,ACC
+0209 FD                MOV     R5,A
+020A FC                MOV     R4,A
+020B 900000      R     MOV     DPTR,#sf
+020E 120000      E     LCALL   ?C?PLDXDATA
+0211 E9                MOV     A,R1
+0212 2414              ADD     A,#014H
+0214 F9                MOV     R1,A
+0215 EA                MOV     A,R2
+0216 3400              ADDC    A,#00H
+0218 FA                MOV     R2,A
+0219 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 428
+021C 900000      R     MOV     DPTR,#sf
+021F 120000      E     LCALL   ?C?PLDXDATA
+0222 E9                MOV     A,R1
+0223 241A              ADD     A,#01AH
+0225 F9                MOV     R1,A
+0226 EA                MOV     A,R2
+0227 3400              ADDC    A,#00H
+0229 FA                MOV     R2,A
+022A 120000      E     LCALL   ?C?LLDPTR
+022D EF                MOV     A,R7
+022E 2401              ADD     A,#01H
+0230 FF                MOV     R7,A
+0231 EE                MOV     A,R6
+0232 3400              ADDC    A,#00H
+0234 FE                MOV     R6,A
+0235 ED                MOV     A,R5
+0236 3400              ADDC    A,#00H
+0238 FD                MOV     R5,A
+0239 EC                MOV     A,R4
+023A 3400              ADDC    A,#00H
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 27  
+
+023C FC                MOV     R4,A
+023D C004              PUSH    AR4
+023F C005              PUSH    AR5
+0241 C006              PUSH    AR6
+0243 C007              PUSH    AR7
+0245 900000      R     MOV     DPTR,#sf
+0248 120000      E     LCALL   ?C?PLDXDATA
+024B E9                MOV     A,R1
+024C 241E              ADD     A,#01EH
+024E F9                MOV     R1,A
+024F EA                MOV     A,R2
+0250 3400              ADDC    A,#00H
+0252 FA                MOV     R2,A
+0253 120000      E     LCALL   ?C?ILDPTR
+0256 FF                MOV     R7,A
+0257 AEF0              MOV     R6,B
+0259 AB07              MOV     R3,AR7
+025B AA06              MOV     R2,AR6
+025D EA                MOV     A,R2
+025E 33                RLC     A
+025F 95E0              SUBB    A,ACC
+0261 F9                MOV     R1,A
+0262 F8                MOV     R0,A
+0263 D007              POP     AR7
+0265 D006              POP     AR6
+0267 D005              POP     AR5
+0269 D004              POP     AR4
+026B 120000      E     LCALL   ?C?LSUB
+026E C004              PUSH    AR4
+0270 C005              PUSH    AR5
+0272 C006              PUSH    AR6
+0274 C007              PUSH    AR7
+0276 900000      R     MOV     DPTR,#sf
+0279 120000      E     LCALL   ?C?PLDXDATA
+027C E9                MOV     A,R1
+027D 2414              ADD     A,#014H
+027F F9                MOV     R1,A
+0280 EA                MOV     A,R2
+0281 3400              ADDC    A,#00H
+0283 FA                MOV     R2,A
+0284 120000      E     LCALL   ?C?LLDPTR
+0287 AB07              MOV     R3,AR7
+0289 AA06              MOV     R2,AR6
+028B A905              MOV     R1,AR5
+028D A804              MOV     R0,AR4
+028F A804              MOV     R0,AR4
+0291 A905              MOV     R1,AR5
+0293 AA06              MOV     R2,AR6
+0295 AB07              MOV     R3,AR7
+0297 D007              POP     AR7
+0299 D006              POP     AR6
+029B D005              POP     AR5
+029D D004              POP     AR4
+029F 120000      E     LCALL   ?C?LMUL
+02A2 E4                CLR     A
+02A3 120000      E     LCALL   ?C?FCASTL
+02A6 C004              PUSH    AR4
+02A8 C005              PUSH    AR5
+02AA C006              PUSH    AR6
+02AC C007              PUSH    AR7
+02AE 900000      R     MOV     DPTR,#sf
+02B1 120000      E     LCALL   ?C?PLDXDATA
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 28  
+
+02B4 E9                MOV     A,R1
+02B5 241E              ADD     A,#01EH
+02B7 F9                MOV     R1,A
+02B8 EA                MOV     A,R2
+02B9 3400              ADDC    A,#00H
+02BB FA                MOV     R2,A
+02BC 120000      E     LCALL   ?C?ILDPTR
+02BF FD                MOV     R5,A
+02C0 ACF0              MOV     R4,B
+02C2 900000      R     MOV     DPTR,#sf
+02C5 120000      E     LCALL   ?C?PLDXDATA
+02C8 120000      E     LCALL   ?C?ILDPTR
+02CB FF                MOV     R7,A
+02CC AEF0              MOV     R6,B
+02CE 120000      E     LCALL   ?C?IMUL
+02D1 AC06              MOV     R4,AR6
+02D3 AD07              MOV     R5,AR7
+02D5 EC                MOV     A,R4
+02D6 120000      E     LCALL   ?C?FCASTI
+02D9 7B00              MOV     R3,#00H
+02DB 7A00              MOV     R2,#00H
+02DD 7900              MOV     R1,#00H
+02DF 7840              MOV     R0,#040H
+02E1 120000      E     LCALL   ?C?FPDIV
+02E4 A804              MOV     R0,AR4
+02E6 A905              MOV     R1,AR5
+02E8 AA06              MOV     R2,AR6
+02EA AB07              MOV     R3,AR7
+02EC D007              POP     AR7
+02EE D006              POP     AR6
+02F0 D005              POP     AR5
+02F2 D004              POP     AR4
+02F4 120000      E     LCALL   ?C?FPADD
+02F7 900000      R     MOV     DPTR,#consign
+02FA 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 429
+02FD 020000      R     LJMP    ?C0008
+0300         ?C0009:
+                                           ; SOURCE LINE # 430
+0300 900000      R     MOV     DPTR,#sf
+0303 120000      E     LCALL   ?C?PLDXDATA
+0306 E9                MOV     A,R1
+0307 2422              ADD     A,#022H
+0309 F9                MOV     R1,A
+030A EA                MOV     A,R2
+030B 3400              ADDC    A,#00H
+030D FA                MOV     R2,A
+030E 120000      E     LCALL   ?C?ILDPTR
+0311 FF                MOV     R7,A
+0312 AEF0              MOV     R6,B
+0314 EE                MOV     A,R6
+0315 33                RLC     A
+0316 95E0              SUBB    A,ACC
+0318 FD                MOV     R5,A
+0319 FC                MOV     R4,A
+031A 900000      R     MOV     DPTR,#sf
+031D 120000      E     LCALL   ?C?PLDXDATA
+0320 E9                MOV     A,R1
+0321 241A              ADD     A,#01AH
+0323 F9                MOV     R1,A
+0324 EA                MOV     A,R2
+0325 3400              ADDC    A,#00H
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 29  
+
+0327 FA                MOV     R2,A
+0328 120000      E     LCALL   ?C?LLDPTR0
+032B C3                CLR     C
+032C 120000      E     LCALL   ?C?ULCMP
+032F 4003              JC      $ + 5H
+0331 020000      R     LJMP    ?C0008
+                                           ; SOURCE LINE # 431
+                                           ; SOURCE LINE # 432
+0334 900000      R     MOV     DPTR,#sf
+0337 120000      E     LCALL   ?C?PLDXDATA
+033A E9                MOV     A,R1
+033B 241A              ADD     A,#01AH
+033D F9                MOV     R1,A
+033E EA                MOV     A,R2
+033F 3400              ADDC    A,#00H
+0341 FA                MOV     R2,A
+0342 120000      E     LCALL   ?C?LLDPTR
+0345 EF                MOV     A,R7
+0346 2401              ADD     A,#01H
+0348 FF                MOV     R7,A
+0349 EE                MOV     A,R6
+034A 3400              ADDC    A,#00H
+034C FE                MOV     R6,A
+034D ED                MOV     A,R5
+034E 3400              ADDC    A,#00H
+0350 FD                MOV     R5,A
+0351 EC                MOV     A,R4
+0352 3400              ADDC    A,#00H
+0354 FC                MOV     R4,A
+0355 C004              PUSH    AR4
+0357 C005              PUSH    AR5
+0359 C006              PUSH    AR6
+035B C007              PUSH    AR7
+035D 900000      R     MOV     DPTR,#sf
+0360 120000      E     LCALL   ?C?PLDXDATA
+0363 E9                MOV     A,R1
+0364 2420              ADD     A,#020H
+0366 F9                MOV     R1,A
+0367 EA                MOV     A,R2
+0368 3400              ADDC    A,#00H
+036A FA                MOV     R2,A
+036B 120000      E     LCALL   ?C?ILDPTR
+036E FF                MOV     R7,A
+036F AEF0              MOV     R6,B
+0371 AB07              MOV     R3,AR7
+0373 AA06              MOV     R2,AR6
+0375 EA                MOV     A,R2
+0376 33                RLC     A
+0377 95E0              SUBB    A,ACC
+0379 F9                MOV     R1,A
+037A F8                MOV     R0,A
+037B D007              POP     AR7
+037D D006              POP     AR6
+037F D005              POP     AR5
+0381 D004              POP     AR4
+0383 120000      E     LCALL   ?C?LSUB
+0386 E4                CLR     A
+0387 120000      E     LCALL   ?C?FCASTL
+038A 900000      R     MOV     DPTR,#sf
+038D 120000      E     LCALL   ?C?PLDXDATA
+0390 E9                MOV     A,R1
+0391 2408              ADD     A,#08H
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 30  
+
+0393 F9                MOV     R1,A
+0394 EA                MOV     A,R2
+0395 3400              ADDC    A,#00H
+0397 FA                MOV     R2,A
+0398 120000      E     LCALL   ?C?LLDPTR0
+039B 120000      E     LCALL   ?C?FPMUL
+039E 120000      E     LCALL   _floor
+03A1 C004              PUSH    AR4
+03A3 C005              PUSH    AR5
+03A5 C006              PUSH    AR6
+03A7 C007              PUSH    AR7
+03A9 900000      R     MOV     DPTR,#sf
+03AC 120000      E     LCALL   ?C?PLDXDATA
+03AF 120000      E     LCALL   ?C?ILDPTR
+03B2 FD                MOV     R5,A
+03B3 ACF0              MOV     R4,B
+03B5 EC                MOV     A,R4
+03B6 120000      E     LCALL   ?C?FCASTI
+03B9 D003              POP     AR3
+03BB D002              POP     AR2
+03BD D001              POP     AR1
+03BF D000              POP     AR0
+03C1 120000      E     LCALL   ?C?FPSUB
+03C4 120000      E     LCALL   ?C?CASTF
+03C7 900000      R     MOV     DPTR,#sf
+03CA 120000      E     LCALL   ?C?PLDXDATA
+03CD E9                MOV     A,R1
+03CE 2414              ADD     A,#014H
+03D0 F9                MOV     R1,A
+03D1 EA                MOV     A,R2
+03D2 3400              ADDC    A,#00H
+03D4 FA                MOV     R2,A
+03D5 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 433
+03D8 900000      R     MOV     DPTR,#sf
+03DB 120000      E     LCALL   ?C?PLDXDATA
+03DE E9                MOV     A,R1
+03DF 241A              ADD     A,#01AH
+03E1 F9                MOV     R1,A
+03E2 EA                MOV     A,R2
+03E3 3400              ADDC    A,#00H
+03E5 FA                MOV     R2,A
+03E6 120000      E     LCALL   ?C?LLDPTR
+03E9 EF                MOV     A,R7
+03EA 2401              ADD     A,#01H
+03EC FF                MOV     R7,A
+03ED EE                MOV     A,R6
+03EE 3400              ADDC    A,#00H
+03F0 FE                MOV     R6,A
+03F1 ED                MOV     A,R5
+03F2 3400              ADDC    A,#00H
+03F4 FD                MOV     R5,A
+03F5 EC                MOV     A,R4
+03F6 3400              ADDC    A,#00H
+03F8 FC                MOV     R4,A
+03F9 C004              PUSH    AR4
+03FB C005              PUSH    AR5
+03FD C006              PUSH    AR6
+03FF C007              PUSH    AR7
+0401 900000      R     MOV     DPTR,#sf
+0404 120000      E     LCALL   ?C?PLDXDATA
+0407 E9                MOV     A,R1
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 31  
+
+0408 2422              ADD     A,#022H
+040A F9                MOV     R1,A
+040B EA                MOV     A,R2
+040C 3400              ADDC    A,#00H
+040E FA                MOV     R2,A
+040F 120000      E     LCALL   ?C?ILDPTR
+0412 FF                MOV     R7,A
+0413 AEF0              MOV     R6,B
+0415 EE                MOV     A,R6
+0416 33                RLC     A
+0417 95E0              SUBB    A,ACC
+0419 FD                MOV     R5,A
+041A FC                MOV     R4,A
+041B D003              POP     AR3
+041D D002              POP     AR2
+041F D001              POP     AR1
+0421 D000              POP     AR0
+0423 120000      E     LCALL   ?C?LSUB
+0426 C004              PUSH    AR4
+0428 C005              PUSH    AR5
+042A C006              PUSH    AR6
+042C C007              PUSH    AR7
+042E 900000      R     MOV     DPTR,#sf
+0431 120000      E     LCALL   ?C?PLDXDATA
+0434 E9                MOV     A,R1
+0435 241A              ADD     A,#01AH
+0437 F9                MOV     R1,A
+0438 EA                MOV     A,R2
+0439 3400              ADDC    A,#00H
+043B FA                MOV     R2,A
+043C 120000      E     LCALL   ?C?LLDPTR
+043F EF                MOV     A,R7
+0440 2401              ADD     A,#01H
+0442 FF                MOV     R7,A
+0443 EE                MOV     A,R6
+0444 3400              ADDC    A,#00H
+0446 FE                MOV     R6,A
+0447 ED                MOV     A,R5
+0448 3400              ADDC    A,#00H
+044A FD                MOV     R5,A
+044B EC                MOV     A,R4
+044C 3400              ADDC    A,#00H
+044E FC                MOV     R4,A
+044F C004              PUSH    AR4
+0451 C005              PUSH    AR5
+0453 C006              PUSH    AR6
+0455 C007              PUSH    AR7
+0457 900000      R     MOV     DPTR,#sf
+045A 120000      E     LCALL   ?C?PLDXDATA
+045D E9                MOV     A,R1
+045E 2422              ADD     A,#022H
+0460 F9                MOV     R1,A
+0461 EA                MOV     A,R2
+0462 3400              ADDC    A,#00H
+0464 FA                MOV     R2,A
+0465 120000      E     LCALL   ?C?ILDPTR
+0468 FF                MOV     R7,A
+0469 AEF0              MOV     R6,B
+046B EE                MOV     A,R6
+046C 33                RLC     A
+046D 95E0              SUBB    A,ACC
+046F FD                MOV     R5,A
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 32  
+
+0470 FC                MOV     R4,A
+0471 D003              POP     AR3
+0473 D002              POP     AR2
+0475 D001              POP     AR1
+0477 D000              POP     AR0
+0479 120000      E     LCALL   ?C?LSUB
+047C A804              MOV     R0,AR4
+047E A905              MOV     R1,AR5
+0480 AA06              MOV     R2,AR6
+0482 AB07              MOV     R3,AR7
+0484 D007              POP     AR7
+0486 D006              POP     AR6
+0488 D005              POP     AR5
+048A D004              POP     AR4
+048C 120000      E     LCALL   ?C?LMUL
+048F E4                CLR     A
+0490 120000      E     LCALL   ?C?FCASTL
+0493 900000      R     MOV     DPTR,#sf
+0496 120000      E     LCALL   ?C?PLDXDATA
+0499 E9                MOV     A,R1
+049A 2408              ADD     A,#08H
+049C F9                MOV     R1,A
+049D EA                MOV     A,R2
+049E 3400              ADDC    A,#00H
+04A0 FA                MOV     R2,A
+04A1 120000      E     LCALL   ?C?LLDPTR0
+04A4 120000      E     LCALL   ?C?FPMUL
+04A7 7B00              MOV     R3,#00H
+04A9 7A00              MOV     R2,#00H
+04AB 7900              MOV     R1,#00H
+04AD 7840              MOV     R0,#040H
+04AF 120000      E     LCALL   ?C?FPDIV
+04B2 C004              PUSH    AR4
+04B4 C005              PUSH    AR5
+04B6 C006              PUSH    AR6
+04B8 C007              PUSH    AR7
+04BA 900000      R     MOV     DPTR,#sf
+04BD 120000      E     LCALL   ?C?PLDXDATA
+04C0 E9                MOV     A,R1
+04C1 2420              ADD     A,#020H
+04C3 F9                MOV     R1,A
+04C4 EA                MOV     A,R2
+04C5 3400              ADDC    A,#00H
+04C7 FA                MOV     R2,A
+04C8 120000      E     LCALL   ?C?ILDPTR
+04CB FF                MOV     R7,A
+04CC AEF0              MOV     R6,B
+04CE 900000      R     MOV     DPTR,#sf
+04D1 120000      E     LCALL   ?C?PLDXDATA
+04D4 E9                MOV     A,R1
+04D5 2422              ADD     A,#022H
+04D7 F9                MOV     R1,A
+04D8 EA                MOV     A,R2
+04D9 3400              ADDC    A,#00H
+04DB FA                MOV     R2,A
+04DC 120000      E     LCALL   ?C?ILDPTR
+04DF FD                MOV     R5,A
+04E0 ACF0              MOV     R4,B
+04E2 C3                CLR     C
+04E3 ED                MOV     A,R5
+04E4 9F                SUBB    A,R7
+04E5 FF                MOV     R7,A
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 33  
+
+04E6 EC                MOV     A,R4
+04E7 9E                SUBB    A,R6
+04E8 FE                MOV     R6,A
+04E9 900000      R     MOV     DPTR,#sf
+04EC 120000      E     LCALL   ?C?PLDXDATA
+04EF 120000      E     LCALL   ?C?ILDPTR
+04F2 FD                MOV     R5,A
+04F3 ACF0              MOV     R4,B
+04F5 120000      E     LCALL   ?C?IMUL
+04F8 AC06              MOV     R4,AR6
+04FA AD07              MOV     R5,AR7
+04FC EC                MOV     A,R4
+04FD 120000      E     LCALL   ?C?FCASTI
+0500 7B00              MOV     R3,#00H
+0502 7A00              MOV     R2,#00H
+0504 7900              MOV     R1,#00H
+0506 7840              MOV     R0,#040H
+0508 120000      E     LCALL   ?C?FPDIV
+050B C004              PUSH    AR4
+050D C005              PUSH    AR5
+050F C006              PUSH    AR6
+0511 C007              PUSH    AR7
+0513 900000      R     MOV     DPTR,#cte
+0516 E0                MOVX    A,@DPTR
+0517 FC                MOV     R4,A
+0518 A3                INC     DPTR
+0519 E0                MOVX    A,@DPTR
+051A FD                MOV     R5,A
+051B E4                CLR     A
+051C 120000      E     LCALL   ?C?FCASTI
+051F A804              MOV     R0,AR4
+0521 A905              MOV     R1,AR5
+0523 AA06              MOV     R2,AR6
+0525 AB07              MOV     R3,AR7
+0527 D007              POP     AR7
+0529 D006              POP     AR6
+052B D005              POP     AR5
+052D D004              POP     AR4
+052F 120000      E     LCALL   ?C?FPADD
+0532 D003              POP     AR3
+0534 D002              POP     AR2
+0536 D001              POP     AR1
+0538 D000              POP     AR0
+053A 120000      E     LCALL   ?C?FPSUB
+053D 900000      R     MOV     DPTR,#consign
+0540 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 434
+0543         ?C0008:
+                                           ; SOURCE LINE # 436
+0543 900000      R     MOV     DPTR,#sf
+0546 120000      E     LCALL   ?C?PLDXDATA
+0549 E9                MOV     A,R1
+054A 2422              ADD     A,#022H
+054C F9                MOV     R1,A
+054D EA                MOV     A,R2
+054E 3400              ADDC    A,#00H
+0550 FA                MOV     R2,A
+0551 120000      E     LCALL   ?C?ILDPTR
+0554 FF                MOV     R7,A
+0555 AEF0              MOV     R6,B
+0557 EE                MOV     A,R6
+0558 33                RLC     A
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 34  
+
+0559 95E0              SUBB    A,ACC
+055B FD                MOV     R5,A
+055C FC                MOV     R4,A
+055D 900000      R     MOV     DPTR,#sf
+0560 120000      E     LCALL   ?C?PLDXDATA
+0563 E9                MOV     A,R1
+0564 241A              ADD     A,#01AH
+0566 F9                MOV     R1,A
+0567 EA                MOV     A,R2
+0568 3400              ADDC    A,#00H
+056A FA                MOV     R2,A
+056B 120000      E     LCALL   ?C?LLDPTR0
+056E C3                CLR     C
+056F 120000      E     LCALL   ?C?ULCMP
+0572 5003              JNC     $ + 5H
+0574 020000      R     LJMP    ?C0012
+                                           ; SOURCE LINE # 437
+                                           ; SOURCE LINE # 438
+0577 900000      R     MOV     DPTR,#sf
+057A 120000      E     LCALL   ?C?PLDXDATA
+057D E9                MOV     A,R1
+057E 240C              ADD     A,#0CH
+0580 F9                MOV     R1,A
+0581 EA                MOV     A,R2
+0582 3400              ADDC    A,#00H
+0584 FA                MOV     R2,A
+0585 120000      E     LCALL   ?C?LLDPTR
+0588 120000      E     LCALL   _abs
+058B EE                MOV     A,R6
+058C 33                RLC     A
+058D 95E0              SUBB    A,ACC
+058F FD                MOV     R5,A
+0590 FC                MOV     R4,A
+0591 900000      R     MOV     DPTR,#sf
+0594 120000      E     LCALL   ?C?PLDXDATA
+0597 E9                MOV     A,R1
+0598 2410              ADD     A,#010H
+059A F9                MOV     R1,A
+059B EA                MOV     A,R2
+059C 3400              ADDC    A,#00H
+059E FA                MOV     R2,A
+059F 120000      E     LCALL   ?C?LLDPTR0
+05A2 C3                CLR     C
+05A3 120000      E     LCALL   ?C?SLCMP
+05A6 4003              JC      $ + 5H
+05A8 020000      R     LJMP    ?C0015
+                                           ; SOURCE LINE # 439
+                                           ; SOURCE LINE # 440
+05AB 900000      R     MOV     DPTR,#sf
+05AE 120000      E     LCALL   ?C?PLDXDATA
+05B1 E9                MOV     A,R1
+05B2 241A              ADD     A,#01AH
+05B4 F9                MOV     R1,A
+05B5 EA                MOV     A,R2
+05B6 3400              ADDC    A,#00H
+05B8 FA                MOV     R2,A
+05B9 120000      E     LCALL   ?C?LLDPTR
+05BC 7B01              MOV     R3,#01H
+05BE 7A00              MOV     R2,#00H
+05C0 7900              MOV     R1,#00H
+05C2 7800              MOV     R0,#00H
+05C4 120000      E     LCALL   ?C?LADD
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 35  
+
+05C7 900000      R     MOV     DPTR,#sf
+05CA 120000      E     LCALL   ?C?PLDXDATA
+05CD E9                MOV     A,R1
+05CE 241A              ADD     A,#01AH
+05D0 F9                MOV     R1,A
+05D1 EA                MOV     A,R2
+05D2 3400              ADDC    A,#00H
+05D4 FA                MOV     R2,A
+05D5 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 442
+05D8 900000      R     MOV     DPTR,#sf
+05DB 120000      E     LCALL   ?C?PLDXDATA
+05DE E9                MOV     A,R1
+05DF 2414              ADD     A,#014H
+05E1 F9                MOV     R1,A
+05E2 EA                MOV     A,R2
+05E3 3400              ADDC    A,#00H
+05E5 FA                MOV     R2,A
+05E6 120000      E     LCALL   ?C?LLDPTR
+05E9 7B00              MOV     R3,#00H
+05EB 7A00              MOV     R2,#00H
+05ED 7900              MOV     R1,#00H
+05EF 7800              MOV     R0,#00H
+05F1 C3                CLR     C
+05F2 120000      E     LCALL   ?C?SLCMP
+05F5 6019              JZ      ?C0014
+                                           ; SOURCE LINE # 443
+05F7 7F00              MOV     R7,#00H
+05F9 7E00              MOV     R6,#00H
+05FB 7D00              MOV     R5,#00H
+05FD 7C00              MOV     R4,#00H
+05FF 900000      R     MOV     DPTR,#sf
+0602 120000      E     LCALL   ?C?PLDXDATA
+0605 E9                MOV     A,R1
+0606 2414              ADD     A,#014H
+0608 F9                MOV     R1,A
+0609 EA                MOV     A,R2
+060A 3400              ADDC    A,#00H
+060C FA                MOV     R2,A
+060D 120000      E     LCALL   ?C?LSTPTR
+0610         ?C0014:
+                                           ; SOURCE LINE # 445
+0610 900000      R     MOV     DPTR,#sf
+0613 120000      E     LCALL   ?C?PLDXDATA
+0616 E9                MOV     A,R1
+0617 2410              ADD     A,#010H
+0619 F9                MOV     R1,A
+061A EA                MOV     A,R2
+061B 3400              ADDC    A,#00H
+061D FA                MOV     R2,A
+061E 120000      E     LCALL   ?C?LLDPTR
+0621 EF                MOV     A,R7
+0622 2401              ADD     A,#01H
+0624 FF                MOV     R7,A
+0625 EE                MOV     A,R6
+0626 3400              ADDC    A,#00H
+0628 FE                MOV     R6,A
+0629 ED                MOV     A,R5
+062A 3400              ADDC    A,#00H
+062C FD                MOV     R5,A
+062D EC                MOV     A,R4
+062E 3400              ADDC    A,#00H
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 36  
+
+0630 FC                MOV     R4,A
+0631 EC                MOV     A,R4
+0632 120000      E     LCALL   ?C?FCASTL
+0635 900000      R     MOV     DPTR,#consign
+0638 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 446
+                                           ; SOURCE LINE # 447
+063B 802D              SJMP    ?C0015
+063D         ?C0012:
+                                           ; SOURCE LINE # 449
+063D 900000      R     MOV     DPTR,#sf
+0640 120000      E     LCALL   ?C?PLDXDATA
+0643 E9                MOV     A,R1
+0644 241A              ADD     A,#01AH
+0646 F9                MOV     R1,A
+0647 EA                MOV     A,R2
+0648 3400              ADDC    A,#00H
+064A FA                MOV     R2,A
+064B 120000      E     LCALL   ?C?LLDPTR
+064E 7B01              MOV     R3,#01H
+0650 7A00              MOV     R2,#00H
+0652 7900              MOV     R1,#00H
+0654 7800              MOV     R0,#00H
+0656 120000      E     LCALL   ?C?LADD
+0659 900000      R     MOV     DPTR,#sf
+065C 120000      E     LCALL   ?C?PLDXDATA
+065F E9                MOV     A,R1
+0660 241A              ADD     A,#01AH
+0662 F9                MOV     R1,A
+0663 EA                MOV     A,R2
+0664 3400              ADDC    A,#00H
+0666 FA                MOV     R2,A
+0667 120000      E     LCALL   ?C?LSTPTR
+066A         ?C0015:
+                                           ; SOURCE LINE # 451
+066A 900000      R     MOV     DPTR,#consign
+066D 120000      E     LCALL   ?C?LLDXDATA
+0670 120000      E     LCALL   ?C?CASTF
+0673 900000      R     MOV     DPTR,#sf
+0676 120000      E     LCALL   ?C?PLDXDATA
+0679 E9                MOV     A,R1
+067A 2410              ADD     A,#010H
+067C F9                MOV     R1,A
+067D EA                MOV     A,R2
+067E 3400              ADDC    A,#00H
+0680 FA                MOV     R2,A
+0681 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 452
+0684 900000      R     MOV     DPTR,#sf
+0687 120000      E     LCALL   ?C?PLDXDATA
+068A E9                MOV     A,R1
+068B 240C              ADD     A,#0CH
+068D F9                MOV     R1,A
+068E EA                MOV     A,R2
+068F 3400              ADDC    A,#00H
+0691 FA                MOV     R2,A
+0692 120000      E     LCALL   ?C?LLDPTR
+0695 7B00              MOV     R3,#00H
+0697 7A00              MOV     R2,#00H
+0699 7900              MOV     R1,#00H
+069B 7800              MOV     R0,#00H
+069D D3                SETB    C
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 37  
+
+069E 120000      E     LCALL   ?C?SLCMP
+06A1 5008              JNC     ?C0016
+06A3 900000      R     MOV     DPTR,#consign
+06A6 120000      E     LCALL   ?C?LLDXDATA
+06A9 8009              SJMP    ?C0017
+06AB         ?C0016:
+06AB 900000      R     MOV     DPTR,#consign
+06AE 120000      E     LCALL   ?C?LLDXDATA
+06B1 120000      E     LCALL   ?C?FPNEG
+06B4         ?C0017:
+06B4 120000      E     LCALL   ?C?CASTF
+06B7 900000      R     MOV     DPTR,#filtered_consign
+06BA 120000      E     LCALL   ?C?PLDXDATA
+06BD 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 454
+06C0 7F00              MOV     R7,#00H
+                                           ; SOURCE LINE # 455
+06C2         ?C0018:
+06C2 22                RET     
+             ; FUNCTION _speed_filter_do_filter (END)
+
+             ; FUNCTION _speed_filter_stop (BEGIN)
+                                           ; SOURCE LINE # 561
+0000 900000      R     MOV     DPTR,#sf
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 562
+                                           ; SOURCE LINE # 563
+0006 900000      R     MOV     DPTR,#sf
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 2414              ADD     A,#014H
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3400              ADDC    A,#00H
+0013 FA                MOV     R2,A
+0014 120000      E     LCALL   ?C?LLDPTR
+0017 EC                MOV     A,R4
+0018 120000      E     LCALL   ?C?FCASTL
+001B 900000      R     MOV     DPTR,#sf
+001E 120000      E     LCALL   ?C?PLDXDATA
+0021 E9                MOV     A,R1
+0022 2408              ADD     A,#08H
+0024 F9                MOV     R1,A
+0025 EA                MOV     A,R2
+0026 3400              ADDC    A,#00H
+0028 FA                MOV     R2,A
+0029 120000      E     LCALL   ?C?LLDPTR0
+002C 120000      E     LCALL   ?C?FPDIV
+002F 120000      E     LCALL   ?C?CASTF
+0032 900000      R     MOV     DPTR,#time_decc
+0035 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 565
+0038 900000      R     MOV     DPTR,#sf
+003B 120000      E     LCALL   ?C?PLDXDATA
+003E E9                MOV     A,R1
+003F 2420              ADD     A,#020H
+0041 F9                MOV     R1,A
+0042 EA                MOV     A,R2
+0043 3400              ADDC    A,#00H
+0045 FA                MOV     R2,A
+0046 120000      E     LCALL   ?C?ILDPTR
+0049 FF                MOV     R7,A
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 38  
+
+004A AEF0              MOV     R6,B
+004C EE                MOV     A,R6
+004D 33                RLC     A
+004E 95E0              SUBB    A,ACC
+0050 FD                MOV     R5,A
+0051 FC                MOV     R4,A
+0052 900000      R     MOV     DPTR,#sf
+0055 120000      E     LCALL   ?C?PLDXDATA
+0058 E9                MOV     A,R1
+0059 241A              ADD     A,#01AH
+005B F9                MOV     R1,A
+005C EA                MOV     A,R2
+005D 3400              ADDC    A,#00H
+005F FA                MOV     R2,A
+0060 120000      E     LCALL   ?C?LLDPTR0
+0063 C3                CLR     C
+0064 120000      E     LCALL   ?C?ULCMP
+0067 4003              JC      $ + 5H
+0069 020000      R     LJMP    ?C0024
+                                           ; SOURCE LINE # 566
+                                           ; SOURCE LINE # 567
+006C 900000      R     MOV     DPTR,#sf
+006F 120000      E     LCALL   ?C?PLDXDATA
+0072 E9                MOV     A,R1
+0073 241E              ADD     A,#01EH
+0075 F9                MOV     R1,A
+0076 EA                MOV     A,R2
+0077 3400              ADDC    A,#00H
+0079 FA                MOV     R2,A
+007A 120000      E     LCALL   ?C?ILDPTR
+007D FF                MOV     R7,A
+007E AEF0              MOV     R6,B
+0080 EE                MOV     A,R6
+0081 33                RLC     A
+0082 95E0              SUBB    A,ACC
+0084 FD                MOV     R5,A
+0085 FC                MOV     R4,A
+0086 900000      R     MOV     DPTR,#sf
+0089 120000      E     LCALL   ?C?PLDXDATA
+008C E9                MOV     A,R1
+008D 241A              ADD     A,#01AH
+008F F9                MOV     R1,A
+0090 EA                MOV     A,R2
+0091 3400              ADDC    A,#00H
+0093 FA                MOV     R2,A
+0094 120000      E     LCALL   ?C?LLDPTR0
+0097 C3                CLR     C
+0098 120000      E     LCALL   ?C?ULCMP
+009B 504C              JNC     ?C0020
+                                           ; SOURCE LINE # 568
+                                           ; SOURCE LINE # 569
+009D 900000      R     MOV     DPTR,#sf
+00A0 120000      E     LCALL   ?C?PLDXDATA
+00A3 E9                MOV     A,R1
+00A4 241A              ADD     A,#01AH
+00A6 F9                MOV     R1,A
+00A7 EA                MOV     A,R2
+00A8 3400              ADDC    A,#00H
+00AA FA                MOV     R2,A
+00AB 120000      E     LCALL   ?C?LLDPTR
+00AE 900000      R     MOV     DPTR,#sf
+00B1 120000      E     LCALL   ?C?PLDXDATA
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 39  
+
+00B4 E9                MOV     A,R1
+00B5 241E              ADD     A,#01EH
+00B7 F9                MOV     R1,A
+00B8 EA                MOV     A,R2
+00B9 3400              ADDC    A,#00H
+00BB FA                MOV     R2,A
+00BC EE                MOV     A,R6
+00BD 8FF0              MOV     B,R7
+00BF 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 570
+00C2 900000      R     MOV     DPTR,#sf
+00C5 120000      E     LCALL   ?C?PLDXDATA
+00C8 E9                MOV     A,R1
+00C9 241A              ADD     A,#01AH
+00CB F9                MOV     R1,A
+00CC EA                MOV     A,R2
+00CD 3400              ADDC    A,#00H
+00CF FA                MOV     R2,A
+00D0 120000      E     LCALL   ?C?LLDPTR
+00D3 900000      R     MOV     DPTR,#sf
+00D6 120000      E     LCALL   ?C?PLDXDATA
+00D9 E9                MOV     A,R1
+00DA 2420              ADD     A,#020H
+00DC F9                MOV     R1,A
+00DD EA                MOV     A,R2
+00DE 3400              ADDC    A,#00H
+00E0 FA                MOV     R2,A
+00E1 EE                MOV     A,R6
+00E2 8FF0              MOV     B,R7
+00E4 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 571
+00E7 8025              SJMP    ?C0021
+00E9         ?C0020:
+                                           ; SOURCE LINE # 573
+00E9 900000      R     MOV     DPTR,#sf
+00EC 120000      E     LCALL   ?C?PLDXDATA
+00EF E9                MOV     A,R1
+00F0 241A              ADD     A,#01AH
+00F2 F9                MOV     R1,A
+00F3 EA                MOV     A,R2
+00F4 3400              ADDC    A,#00H
+00F6 FA                MOV     R2,A
+00F7 120000      E     LCALL   ?C?LLDPTR
+00FA 900000      R     MOV     DPTR,#sf
+00FD 120000      E     LCALL   ?C?PLDXDATA
+0100 E9                MOV     A,R1
+0101 2420              ADD     A,#020H
+0103 F9                MOV     R1,A
+0104 EA                MOV     A,R2
+0105 3400              ADDC    A,#00H
+0107 FA                MOV     R2,A
+0108 EE                MOV     A,R6
+0109 8FF0              MOV     B,R7
+010B 120000      E     LCALL   ?C?ISTPTR
+010E         ?C0021:
+                                           ; SOURCE LINE # 575
+010E 900000      R     MOV     DPTR,#sf
+0111 120000      E     LCALL   ?C?PLDXDATA
+0114 E9                MOV     A,R1
+0115 241A              ADD     A,#01AH
+0117 F9                MOV     R1,A
+0118 EA                MOV     A,R2
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 40  
+
+0119 3400              ADDC    A,#00H
+011B FA                MOV     R2,A
+011C 120000      E     LCALL   ?C?LLDPTR
+011F AB07              MOV     R3,AR7
+0121 AA06              MOV     R2,AR6
+0123 900000      R     MOV     DPTR,#time_decc
+0126 120000      E     LCALL   ?C?LLDXDATA
+0129 EB                MOV     A,R3
+012A 2F                ADD     A,R7
+012B FF                MOV     R7,A
+012C EA                MOV     A,R2
+012D 3E                ADDC    A,R6
+012E FE                MOV     R6,A
+012F 900000      R     MOV     DPTR,#sf
+0132 120000      E     LCALL   ?C?PLDXDATA
+0135 E9                MOV     A,R1
+0136 2422              ADD     A,#022H
+0138 F9                MOV     R1,A
+0139 EA                MOV     A,R2
+013A 3400              ADDC    A,#00H
+013C FA                MOV     R2,A
+013D EE                MOV     A,R6
+013E 8FF0              MOV     B,R7
+0140 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 576
+0143 900000      R     MOV     DPTR,#sf
+0146 120000      E     LCALL   ?C?PLDXDATA
+0149 E9                MOV     A,R1
+014A 240C              ADD     A,#0CH
+014C F9                MOV     R1,A
+014D EA                MOV     A,R2
+014E 3400              ADDC    A,#00H
+0150 FA                MOV     R2,A
+0151 120000      E     LCALL   ?C?LLDPTR
+0154 7B00              MOV     R3,#00H
+0156 7A00              MOV     R2,#00H
+0158 7900              MOV     R1,#00H
+015A 7800              MOV     R0,#00H
+015C C3                CLR     C
+015D 120000      E     LCALL   ?C?SLCMP
+0160 503B              JNC     ?C0022
+0162 900000      R     MOV     DPTR,#sf
+0165 120000      E     LCALL   ?C?PLDXDATA
+0168 E9                MOV     A,R1
+0169 2414              ADD     A,#014H
+016B F9                MOV     R1,A
+016C EA                MOV     A,R2
+016D 3400              ADDC    A,#00H
+016F FA                MOV     R2,A
+0170 120000      E     LCALL   ?C?LLDPTR
+0173 900000      R     MOV     DPTR,#time_decc
+0176 120000      E     LCALL   ?C?LLDXDATA0
+0179 120000      E     LCALL   ?C?LMUL
+017C 7B02              MOV     R3,#02H
+017E 7A00              MOV     R2,#00H
+0180 7900              MOV     R1,#00H
+0182 7800              MOV     R0,#00H
+0184 120000      E     LCALL   ?C?SLDIV
+0187 900000      R     MOV     DPTR,#sf
+018A 120000      E     LCALL   ?C?PLDXDATA
+018D E9                MOV     A,R1
+018E 2410              ADD     A,#010H
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 41  
+
+0190 F9                MOV     R1,A
+0191 EA                MOV     A,R2
+0192 3400              ADDC    A,#00H
+0194 FA                MOV     R2,A
+0195 120000      E     LCALL   ?C?LLDPTR0
+0198 120000      E     LCALL   ?C?LADD
+019B 803C              SJMP    ?C0023
+019D         ?C0022:
+019D 900000      R     MOV     DPTR,#sf
+01A0 120000      E     LCALL   ?C?PLDXDATA
+01A3 E9                MOV     A,R1
+01A4 2414              ADD     A,#014H
+01A6 F9                MOV     R1,A
+01A7 EA                MOV     A,R2
+01A8 3400              ADDC    A,#00H
+01AA FA                MOV     R2,A
+01AB 120000      E     LCALL   ?C?LLDPTR
+01AE 900000      R     MOV     DPTR,#time_decc
+01B1 120000      E     LCALL   ?C?LLDXDATA0
+01B4 120000      E     LCALL   ?C?LMUL
+01B7 7B02              MOV     R3,#02H
+01B9 7A00              MOV     R2,#00H
+01BB 7900              MOV     R1,#00H
+01BD 7800              MOV     R0,#00H
+01BF 120000      E     LCALL   ?C?SLDIV
+01C2 900000      R     MOV     DPTR,#sf
+01C5 120000      E     LCALL   ?C?PLDXDATA
+01C8 E9                MOV     A,R1
+01C9 2410              ADD     A,#010H
+01CB F9                MOV     R1,A
+01CC EA                MOV     A,R2
+01CD 3400              ADDC    A,#00H
+01CF FA                MOV     R2,A
+01D0 120000      E     LCALL   ?C?LLDPTR0
+01D3 120000      E     LCALL   ?C?LADD
+01D6 120000      E     LCALL   ?C?LNEG
+01D9         ?C0023:
+01D9 900000      R     MOV     DPTR,#sf
+01DC 120000      E     LCALL   ?C?PLDXDATA
+01DF E9                MOV     A,R1
+01E0 240C              ADD     A,#0CH
+01E2 F9                MOV     R1,A
+01E3 EA                MOV     A,R2
+01E4 3400              ADDC    A,#00H
+01E6 FA                MOV     R2,A
+01E7 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 577
+                                           ; SOURCE LINE # 578
+01EA         ?C0024:
+01EA 22                RET     
+             ; FUNCTION _speed_filter_stop (END)
+
+             ; FUNCTION _speed_filter_set_cinematic_parameter (BEGIN)
+                                           ; SOURCE LINE # 580
+0000 900000      R     MOV     DPTR,#sf
+0003 120000      E     LCALL   ?C?PSTXDATA
+0006 900000      R     MOV     DPTR,#speed_pos
+0009 EC                MOV     A,R4
+000A F0                MOVX    @DPTR,A
+000B A3                INC     DPTR
+000C ED                MOV     A,R5
+000D F0                MOVX    @DPTR,A
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 42  
+
+                                           ; SOURCE LINE # 581
+                                           ; SOURCE LINE # 582
+000E 900000      R     MOV     DPTR,#speed_pos
+0011 E0                MOVX    A,@DPTR
+0012 FE                MOV     R6,A
+0013 A3                INC     DPTR
+0014 E0                MOVX    A,@DPTR
+0015 FF                MOV     R7,A
+0016 900000      R     MOV     DPTR,#sf
+0019 120000      E     LCALL   ?C?PLDXDATA
+001C EE                MOV     A,R6
+001D 8FF0              MOV     B,R7
+001F 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 583
+0022 900000      R     MOV     DPTR,#speed_neg
+0025 E0                MOVX    A,@DPTR
+0026 FE                MOV     R6,A
+0027 A3                INC     DPTR
+0028 E0                MOVX    A,@DPTR
+0029 FF                MOV     R7,A
+002A 900000      R     MOV     DPTR,#sf
+002D 120000      E     LCALL   ?C?PLDXDATA
+0030 E9                MOV     A,R1
+0031 2402              ADD     A,#02H
+0033 F9                MOV     R1,A
+0034 EA                MOV     A,R2
+0035 3400              ADDC    A,#00H
+0037 FA                MOV     R2,A
+0038 EE                MOV     A,R6
+0039 8FF0              MOV     B,R7
+003B 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 584
+003E 900000      R     MOV     DPTR,#acc_pos
+0041 120000      E     LCALL   ?C?LLDXDATA
+0044 900000      R     MOV     DPTR,#sf
+0047 120000      E     LCALL   ?C?PLDXDATA
+004A E9                MOV     A,R1
+004B 2404              ADD     A,#04H
+004D F9                MOV     R1,A
+004E EA                MOV     A,R2
+004F 3400              ADDC    A,#00H
+0051 FA                MOV     R2,A
+0052 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 585
+0055 900000      R     MOV     DPTR,#acc_neg
+0058 120000      E     LCALL   ?C?LLDXDATA
+005B 900000      R     MOV     DPTR,#sf
+005E 120000      E     LCALL   ?C?PLDXDATA
+0061 E9                MOV     A,R1
+0062 2408              ADD     A,#08H
+0064 F9                MOV     R1,A
+0065 EA                MOV     A,R2
+0066 3400              ADDC    A,#00H
+0068 FA                MOV     R2,A
+0069 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 586
+006C 22                RET     
+             ; FUNCTION _speed_filter_set_cinematic_parameter (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+C51 COMPILER V9.03   SPEED_FILTER                                                          05/13/2012 22:25:52 PAGE 43  
+
+   CODE SIZE        =   3579    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----      83
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

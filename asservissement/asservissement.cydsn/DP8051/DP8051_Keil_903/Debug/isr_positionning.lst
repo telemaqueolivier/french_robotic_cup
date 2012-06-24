@@ -1,0 +1,632 @@
+C51 COMPILER V9.03   ISR_POSITIONNING                                                      05/13/2012 22:25:54 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE ISR_POSITIONNING
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\isr_positionning.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\Gene
+                    -rated_Source\PSoC3\isr_positionning.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\isr_positionning.ls
+                    -t) CD DB NOIP OT(2,SIZE) INCDIR(Generated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\isr_positionning.obj)
+
+line level    source
+
+   1          /*******************************************************************************
+   2          * File Name: isr_positionning.c  
+   3          * Version 1.50
+   4          *
+   5          *  Description:
+   6          *   API for controlling the state of an interrupt.
+   7          *
+   8          *
+   9          *  Note:
+  10          *
+  11          ********************************************************************************
+  12          * Copyright 2008-2010, Cypress Semiconductor Corporation.  All rights reserved.
+  13          * You may use this file only in accordance with the license, terms, conditions, 
+  14          * disclaimers, and limitations in the end user license agreement accompanying 
+  15          * the software package with which this file was provided.
+  16          ********************************************************************************/
+  17          
+  18          
+  19          #include <CYDEVICE.H>
+  20          #include <CYDEVICE_TRM.H>
+  21          #include <CYLIB.H>
+  22          #include <isr_positionning.H>
+  23          
+  24          
+  25          /*******************************************************************************
+  26          *  Place your includes, defines and code here 
+  27          ********************************************************************************/
+  28          /* `#START isr_positionning_intc` */
+  29          #include "global_variable.h"
+  30          #include "trajectory.h"
+  31          /* `#END` */
+  32          
+  33          
+  34          /*******************************************************************************
+  35          * Function Name: isr_positionning_Start
+  36          ********************************************************************************
+  37          * Summary:
+  38          *  Set up the interrupt and enable it.
+  39          *
+  40          * Parameters:  
+  41          *   void.
+  42          *
+  43          *
+  44          * Return:
+  45          *   void.
+  46          *
+  47          *******************************************************************************/
+  48          void isr_positionning_Start(void)
+  49          {
+  50   1          /* For all we know the interrupt is active. */
+  51   1          isr_positionning_Disable();
+  52   1      
+  53   1          /* Set the ISR to point to the isr_positionning Interrupt. */
+C51 COMPILER V9.03   ISR_POSITIONNING                                                      05/13/2012 22:25:54 PAGE 2   
+
+  54   1          isr_positionning_SetVector(isr_positionning_Interrupt);
+  55   1      
+  56   1          /* Set the priority. */
+  57   1          isr_positionning_SetPriority(isr_positionning_INTC_PRIOR_NUMBER);
+  58   1      
+  59   1          /* Enable it. */
+  60   1          isr_positionning_Enable();
+  61   1      }
+  62          
+  63          /*******************************************************************************
+  64          * Function Name: isr_positionning_StartEx
+  65          ********************************************************************************
+  66          * Summary:
+  67          *  Set up the interrupt and enable it.
+  68          *
+  69          * Parameters:  
+  70          *   address: Address of the ISR to set in the interrupt vector table.
+  71          *
+  72          *
+  73          * Return:
+  74          *   void.
+  75          *
+  76          *******************************************************************************/
+  77          void isr_positionning_StartEx(cyisraddress address)
+  78          {
+  79   1          /* For all we know the interrupt is active. */
+  80   1          isr_positionning_Disable();
+  81   1      
+  82   1          /* Set the ISR to point to the isr_positionning Interrupt. */
+  83   1          isr_positionning_SetVector(address);
+  84   1      
+  85   1          /* Set the priority. */
+  86   1          isr_positionning_SetPriority(isr_positionning_INTC_PRIOR_NUMBER);
+  87   1      
+  88   1          /* Enable it. */
+  89   1          isr_positionning_Enable();
+  90   1      }
+  91          
+  92          /*******************************************************************************
+  93          * Function Name: isr_positionning_Stop
+  94          ********************************************************************************
+  95          * Summary:
+  96          *   Disables and removes the interrupt.
+  97          *
+  98          * Parameters:  
+  99          *
+ 100          *
+ 101          * Return:
+ 102          *   void.
+ 103          *
+ 104          *******************************************************************************/
+ 105          void isr_positionning_Stop(void) 
+ 106          {
+ 107   1          /* Disable this interrupt. */
+ 108   1          isr_positionning_Disable();
+ 109   1      }
+ 110          
+ 111          /*******************************************************************************
+ 112          * Function Name: isr_positionning_Interrupt
+ 113          ********************************************************************************
+ 114          * Summary:
+ 115          *   The default Interrupt Service Routine for isr_positionning.
+C51 COMPILER V9.03   ISR_POSITIONNING                                                      05/13/2012 22:25:54 PAGE 3   
+
+ 116          *
+ 117          *   Add custom code between the coments to keep the next version of this file
+ 118          *   from over writting your code.
+ 119          *
+ 120          *
+ 121          *
+ 122          * Parameters:  
+ 123          *
+ 124          *
+ 125          * Return:
+ 126          *   void.
+ 127          *
+ 128          *******************************************************************************/
+ 129          CY_ISR(isr_positionning_Interrupt)
+ 130          {
+ 131   1          /*  Place your Interrupt code here. */
+ 132   1          /* `#START isr_positionning_Interrupt` */
+ 133   1              rsT.t = TIME_ASSERV;
+ 134   1          /* `#END` */
+ 135   1      
+ 136   1          /* PSoC3 ES1, ES2 RTC ISR PATCH  */ 
+ 137   1          #if(CYDEV_CHIP_FAMILY_USED == CYDEV_CHIP_FAMILY_PSOC3)
+ 138   1              #if((CYDEV_CHIP_REVISION_USED <= CYDEV_CHIP_REVISION_3A_ES2) && (isr_positionning__ES2_PATCH ))   
+             -   
+                          isr_positionning_ISR_PATCH();
+                      #endif
+ 141   1          #endif
+ 142   1      }
+ 143          
+ 144          /*******************************************************************************
+ 145          * Function Name: isr_positionning_SetVector
+ 146          ********************************************************************************
+ 147          * Summary:
+ 148          *   Change the ISR vector for the Interrupt. Note calling isr_positionning_Start
+ 149          *   will override any effect this method would have had. To set the vector before
+ 150          *   the component has been started use isr_positionning_StartEx instead.
+ 151          *
+ 152          *
+ 153          * Parameters:
+ 154          *   address: Address of the ISR to set in the interrupt vector table.
+ 155          *
+ 156          *
+ 157          * Return:
+ 158          *   void.
+ 159          *
+ 160          *
+ 161          *******************************************************************************/
+ 162          void isr_positionning_SetVector(cyisraddress address) 
+ 163          {
+ 164   1          CY_SET_REG16(isr_positionning_INTC_VECTOR, (uint16) address);
+ 165   1      }
+ 166          
+ 167          /*******************************************************************************
+ 168          * Function Name: isr_positionning_GetVector
+ 169          ********************************************************************************
+ 170          * Summary:
+ 171          *   Gets the "address" of the current ISR vector for the Interrupt.
+ 172          *
+ 173          *
+ 174          * Parameters:
+ 175          *   void.
+ 176          *
+C51 COMPILER V9.03   ISR_POSITIONNING                                                      05/13/2012 22:25:54 PAGE 4   
+
+ 177          *
+ 178          * Return:
+ 179          *   Address of the ISR in the interrupt vector table.
+ 180          *
+ 181          *
+ 182          *******************************************************************************/
+ 183          cyisraddress isr_positionning_GetVector(void) 
+ 184          {
+ 185   1          return (cyisraddress) CY_GET_REG16(isr_positionning_INTC_VECTOR);
+ 186   1      }
+ 187          
+ 188          /*******************************************************************************
+ 189          * Function Name: isr_positionning_SetPriority
+ 190          ********************************************************************************
+ 191          * Summary:
+ 192          *   Sets the Priority of the Interrupt. Note calling isr_positionning_Start
+ 193          *   or isr_positionning_StartEx will override any effect this method would have had. 
+ 194          *       This method should only be called after isr_positionning_Start or 
+ 195          *       isr_positionning_StartEx has been called. To set the initial
+ 196          *       priority for the component use the cydwr file in the tool.
+ 197          *
+ 198          *
+ 199          * Parameters:
+ 200          *   priority: Priority of the interrupt. 0 - 7, 0 being the highest.
+ 201          *
+ 202          *
+ 203          * Return:
+ 204          *   void.
+ 205          *
+ 206          *
+ 207          *******************************************************************************/
+ 208          void isr_positionning_SetPriority(uint8 priority) 
+ 209          {
+ 210   1          *isr_positionning_INTC_PRIOR = priority << 5;
+ 211   1      }
+ 212          
+ 213          /*******************************************************************************
+ 214          * Function Name: isr_positionning_GetPriority
+ 215          ********************************************************************************
+ 216          * Summary:
+ 217          *   Gets the Priority of the Interrupt.
+ 218          *
+ 219          *
+ 220          * Parameters:
+ 221          *   void.
+ 222          *
+ 223          *
+ 224          * Return:
+ 225          *   Priority of the interrupt. 0 - 7, 0 being the highest.
+ 226          *
+ 227          *
+ 228          *******************************************************************************/
+ 229          uint8 isr_positionning_GetPriority(void) 
+ 230          {
+ 231   1          uint8 priority;
+ 232   1      
+ 233   1      
+ 234   1          priority = *isr_positionning_INTC_PRIOR >> 5;
+ 235   1      
+ 236   1          return priority;
+ 237   1      }
+ 238          
+C51 COMPILER V9.03   ISR_POSITIONNING                                                      05/13/2012 22:25:54 PAGE 5   
+
+ 239          /*******************************************************************************
+ 240          * Function Name: isr_positionning_Enable
+ 241          ********************************************************************************
+ 242          * Summary:
+ 243          *   Enables the interrupt.
+ 244          *
+ 245          *
+ 246          * Parameters:
+ 247          *   void.
+ 248          *
+ 249          *
+ 250          * Return:
+ 251          *   void.
+ 252          *
+ 253          *
+ 254          *******************************************************************************/
+ 255          void isr_positionning_Enable(void) 
+ 256          {
+ 257   1          /* Enable the general interrupt. */
+ 258   1          *isr_positionning_INTC_SET_EN = isr_positionning__INTC_MASK;
+ 259   1      }
+ 260          
+ 261          /*******************************************************************************
+ 262          * Function Name: isr_positionning_GetState
+ 263          ********************************************************************************
+ 264          * Summary:
+ 265          *   Gets the state (enabled, disabled) of the Interrupt.
+ 266          *
+ 267          *
+ 268          * Parameters:
+ 269          *   void.
+ 270          *
+ 271          *
+ 272          * Return:
+ 273          *   1 if enabled, 0 if disabled.
+ 274          *
+ 275          *
+ 276          *******************************************************************************/
+ 277          uint8 isr_positionning_GetState(void) 
+ 278          {
+ 279   1          /* Get the state of the general interrupt. */
+ 280   1          return (*isr_positionning_INTC_SET_EN & isr_positionning__INTC_MASK) ? 1:0;
+ 281   1      }
+ 282          
+ 283          /*******************************************************************************
+ 284          * Function Name: isr_positionning_Disable
+ 285          ********************************************************************************
+ 286          * Summary:
+ 287          *   Disables the Interrupt.
+ 288          *
+ 289          *
+ 290          * Parameters:
+ 291          *   void.
+ 292          *
+ 293          *
+ 294          * Return:
+ 295          *   void.
+ 296          *
+ 297          *
+ 298          *******************************************************************************/
+ 299          void isr_positionning_Disable(void) 
+ 300          {
+C51 COMPILER V9.03   ISR_POSITIONNING                                                      05/13/2012 22:25:54 PAGE 6   
+
+ 301   1          /* Disable the general interrupt. */
+ 302   1          *isr_positionning_INTC_CLR_EN = isr_positionning__INTC_MASK;
+ 303   1      }
+ 304          
+ 305          /*******************************************************************************
+ 306          * Function Name: isr_positionning_SetPending
+ 307          ********************************************************************************
+ 308          * Summary:
+ 309          *   Causes the Interrupt to enter the pending state, a software method of
+ 310          *   generating the interrupt.
+ 311          *
+ 312          *
+ 313          * Parameters:
+ 314          *   void.
+ 315          *
+ 316          *
+ 317          * Return:
+ 318          *   void.
+ 319          *
+ 320          *
+ 321          *******************************************************************************/
+ 322          void isr_positionning_SetPending(void) 
+ 323          {
+ 324   1          *isr_positionning_INTC_SET_PD = isr_positionning__INTC_MASK;
+ 325   1      }
+ 326          
+ 327          /*******************************************************************************
+ 328          * Function Name: isr_positionning_ClearPending
+ 329          ********************************************************************************
+ 330          * Summary:
+ 331          *   Clears a pending interrupt.
+ 332          *
+ 333          * Parameters:
+ 334          *   void.
+ 335          *
+ 336          *
+ 337          * Return:
+ 338          *   void.
+ 339          *
+ 340          *
+ 341          *******************************************************************************/
+ 342          void isr_positionning_ClearPending(void) 
+ 343          {
+ 344   1          *isr_positionning_INTC_CLR_PD = isr_positionning__INTC_MASK;
+ 345   1      }
+C51 COMPILER V9.03   ISR_POSITIONNING                                                      05/13/2012 22:25:54 PAGE 7   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION isr_positionning_Start (BEGIN)
+                                           ; SOURCE LINE # 48
+                                           ; SOURCE LINE # 49
+                                           ; SOURCE LINE # 51
+0000 120000      R     LCALL   isr_positionning_Disable
+                                           ; SOURCE LINE # 54
+0003 7E00        R     MOV     R6,#HIGH isr_positionning_Interrupt
+0005 7F00        R     MOV     R7,#LOW isr_positionning_Interrupt
+0007 120000      R     LCALL   _isr_positionning_SetVector
+                                           ; SOURCE LINE # 57
+000A 7F07              MOV     R7,#07H
+000C 120000      R     LCALL   _isr_positionning_SetPriority
+                                           ; SOURCE LINE # 60
+000F 120000      R     LCALL   isr_positionning_Enable
+                                           ; SOURCE LINE # 61
+0012 22                RET     
+             ; FUNCTION isr_positionning_Start (END)
+
+             ; FUNCTION _isr_positionning_StartEx (BEGIN)
+                                           ; SOURCE LINE # 77
+0000 900000      R     MOV     DPTR,#address
+0003 EE                MOV     A,R6
+0004 F0                MOVX    @DPTR,A
+0005 A3                INC     DPTR
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 78
+                                           ; SOURCE LINE # 80
+0008 120000      R     LCALL   isr_positionning_Disable
+                                           ; SOURCE LINE # 83
+000B 900000      R     MOV     DPTR,#address
+000E E0                MOVX    A,@DPTR
+000F FE                MOV     R6,A
+0010 A3                INC     DPTR
+0011 E0                MOVX    A,@DPTR
+0012 FF                MOV     R7,A
+0013 120000      R     LCALL   _isr_positionning_SetVector
+                                           ; SOURCE LINE # 86
+0016 7F07              MOV     R7,#07H
+0018 120000      R     LCALL   _isr_positionning_SetPriority
+                                           ; SOURCE LINE # 89
+001B 120000      R     LCALL   isr_positionning_Enable
+                                           ; SOURCE LINE # 90
+001E 22                RET     
+             ; FUNCTION _isr_positionning_StartEx (END)
+
+             ; FUNCTION isr_positionning_Stop (BEGIN)
+                                           ; SOURCE LINE # 105
+                                           ; SOURCE LINE # 106
+                                           ; SOURCE LINE # 108
+0000 120000      R     LCALL   isr_positionning_Disable
+                                           ; SOURCE LINE # 109
+0003 22                RET     
+             ; FUNCTION isr_positionning_Stop (END)
+
+             ; FUNCTION isr_positionning_Interrupt (BEGIN)
+0000 C0E0              PUSH    ACC
+0002 C083              PUSH    DPH
+0004 C082              PUSH    DPL
+C51 COMPILER V9.03   ISR_POSITIONNING                                                      05/13/2012 22:25:54 PAGE 8   
+
+0006 C085              PUSH    DPH1
+0008 C084              PUSH    DPL1
+000A C086              PUSH    DPS
+000C 758600            MOV     DPS,#00H
+000F C000        E     PUSH    ?C?XPAGE1SFR
+0011 750000      E     MOV     ?C?XPAGE1SFR,#?C?XPAGE1RST
+                                           ; SOURCE LINE # 129
+                                           ; SOURCE LINE # 133
+0014 900000      E     MOV     DPTR,#rsT+01H
+0017 7401              MOV     A,#01H
+0019 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 142
+001A D000        E     POP     ?C?XPAGE1SFR
+001C D086              POP     DPS
+001E D084              POP     DPL1
+0020 D085              POP     DPH1
+0022 D082              POP     DPL
+0024 D083              POP     DPH
+0026 D0E0              POP     ACC
+0028 32                RETI    
+             ; FUNCTION isr_positionning_Interrupt (END)
+
+             ; FUNCTION _isr_positionning_SetVector (BEGIN)
+                                           ; SOURCE LINE # 162
+0000 900000      R     MOV     DPTR,#address
+0003 EE                MOV     A,R6
+0004 F0                MOVX    @DPTR,A
+0005 A3                INC     DPTR
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 163
+                                           ; SOURCE LINE # 164
+0008 7B02              MOV     R3,#02H
+000A 7A44              MOV     R2,#044H
+000C 7908              MOV     R1,#08H
+000E 900000      R     MOV     DPTR,#address
+0011 E0                MOVX    A,@DPTR
+0012 FE                MOV     R6,A
+0013 A3                INC     DPTR
+0014 E0                MOVX    A,@DPTR
+0015 FF                MOV     R7,A
+0016 AD07              MOV     R5,AR7
+0018 AC06              MOV     R4,AR6
+001A 120000      E     LCALL   _cywrite16_nodpx
+                                           ; SOURCE LINE # 165
+001D 22                RET     
+             ; FUNCTION _isr_positionning_SetVector (END)
+
+             ; FUNCTION isr_positionning_GetVector (BEGIN)
+                                           ; SOURCE LINE # 183
+                                           ; SOURCE LINE # 184
+                                           ; SOURCE LINE # 185
+0000 7B02              MOV     R3,#02H
+0002 7A44              MOV     R2,#044H
+0004 7908              MOV     R1,#08H
+0006 120000      E     LCALL   _cyread16_nodpx
+                                           ; SOURCE LINE # 186
+0009         ?C0006:
+0009 22                RET     
+             ; FUNCTION isr_positionning_GetVector (END)
+
+             ; FUNCTION _isr_positionning_SetPriority (BEGIN)
+C51 COMPILER V9.03   ISR_POSITIONNING                                                      05/13/2012 22:25:54 PAGE 9   
+
+                                           ; SOURCE LINE # 208
+0000 900000      R     MOV     DPTR,#priority
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 209
+                                           ; SOURCE LINE # 210
+0005 900000      R     MOV     DPTR,#priority
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A EF                MOV     A,R7
+000B C4                SWAP    A
+000C 33                RLC     A
+000D 54E0              ANL     A,#0E0H
+000F FF                MOV     R7,A
+0010 904484            MOV     DPTR,#04484H
+0013 EF                MOV     A,R7
+0014 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 211
+0015 22                RET     
+             ; FUNCTION _isr_positionning_SetPriority (END)
+
+             ; FUNCTION isr_positionning_GetPriority (BEGIN)
+                                           ; SOURCE LINE # 229
+                                           ; SOURCE LINE # 230
+                                           ; SOURCE LINE # 234
+0000 904484            MOV     DPTR,#04484H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 C4                SWAP    A
+0007 13                RRC     A
+0008 5407              ANL     A,#07H
+000A FF                MOV     R7,A
+000B 900000      R     MOV     DPTR,#priority
+000E EF                MOV     A,R7
+000F F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 236
+0010 900000      R     MOV     DPTR,#priority
+0013 E0                MOVX    A,@DPTR
+0014 FF                MOV     R7,A
+                                           ; SOURCE LINE # 237
+0015         ?C0008:
+0015 22                RET     
+             ; FUNCTION isr_positionning_GetPriority (END)
+
+             ; FUNCTION isr_positionning_Enable (BEGIN)
+                                           ; SOURCE LINE # 255
+                                           ; SOURCE LINE # 256
+                                           ; SOURCE LINE # 258
+0000 9044C0            MOV     DPTR,#044C0H
+0003 7410              MOV     A,#010H
+0005 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 259
+0006 22                RET     
+             ; FUNCTION isr_positionning_Enable (END)
+
+             ; FUNCTION isr_positionning_GetState (BEGIN)
+                                           ; SOURCE LINE # 277
+                                           ; SOURCE LINE # 278
+                                           ; SOURCE LINE # 280
+0000 9044C0            MOV     DPTR,#044C0H
+0003 E0                MOVX    A,@DPTR
+C51 COMPILER V9.03   ISR_POSITIONNING                                                      05/13/2012 22:25:54 PAGE 10  
+
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 5410              ANL     A,#010H
+0008 FF                MOV     R7,A
+0009 7E00              MOV     R6,#00H
+000B EF                MOV     A,R7
+000C 4E                ORL     A,R6
+000D 6004              JZ      ?C0010
+000F 7F01              MOV     R7,#01H
+0011 8002              SJMP    ?C0011
+0013         ?C0010:
+0013 7F00              MOV     R7,#00H
+0015         ?C0011:
+                                           ; SOURCE LINE # 281
+0015         ?C0012:
+0015 22                RET     
+             ; FUNCTION isr_positionning_GetState (END)
+
+             ; FUNCTION isr_positionning_Disable (BEGIN)
+                                           ; SOURCE LINE # 299
+                                           ; SOURCE LINE # 300
+                                           ; SOURCE LINE # 302
+0000 9044C8            MOV     DPTR,#044C8H
+0003 7410              MOV     A,#010H
+0005 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 303
+0006 22                RET     
+             ; FUNCTION isr_positionning_Disable (END)
+
+             ; FUNCTION isr_positionning_SetPending (BEGIN)
+                                           ; SOURCE LINE # 322
+                                           ; SOURCE LINE # 323
+                                           ; SOURCE LINE # 324
+0000 9044D0            MOV     DPTR,#044D0H
+0003 7410              MOV     A,#010H
+0005 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 325
+0006 22                RET     
+             ; FUNCTION isr_positionning_SetPending (END)
+
+             ; FUNCTION isr_positionning_ClearPending (BEGIN)
+                                           ; SOURCE LINE # 342
+                                           ; SOURCE LINE # 343
+                                           ; SOURCE LINE # 344
+0000 9044D8            MOV     DPTR,#044D8H
+0003 7410              MOV     A,#010H
+0005 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 345
+0006 22                RET     
+             ; FUNCTION isr_positionning_ClearPending (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    229    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       6
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+C51 COMPILER V9.03   ISR_POSITIONNING                                                      05/13/2012 22:25:54 PAGE 11  
+
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

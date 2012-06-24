@@ -1,0 +1,361 @@
+C51 COMPILER V9.03   PWM_RIGHT_PM                                                          05/13/2012 22:25:55 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE PWM_RIGHT_PM
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\pwm_right_PM.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\Gene
+                    -rated_Source\PSoC3\pwm_right_PM.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\pwm_right_PM.lst) CD DB
+                    - NOIP OT(2,SIZE) INCDIR(Generated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\pwm_right_PM.obj)
+
+line level    source
+
+   1          /*******************************************************************************
+   2          * File Name: pwm_right_PM.c
+   3          * Version 2.0
+   4          *
+   5          * Description:
+   6          *  This file provides the power management source code to API for the
+   7          *  PWM.
+   8          *
+   9          * Note:
+  10          *
+  11          ********************************************************************************
+  12          * Copyright 2008-2010, Cypress Semiconductor Corporation.  All rights reserved.
+  13          * You may use this file only in accordance with the license, terms, conditions,
+  14          * disclaimers, and limitations in the end user license agreement accompanying
+  15          * the software package with which this file was provided.
+  16          *******************************************************************************/
+  17          #include "cytypes.h"
+  18          #include "pwm_right.h"
+  19          
+  20          static pwm_right_backupStruct pwm_right_backup;
+  21          
+  22          
+  23          /*******************************************************************************
+  24          * Function Name: pwm_right_SaveConfig
+  25          ********************************************************************************
+  26          *
+  27          * Summary:
+  28          *  Saves the current user configuration of the component.
+  29          *  
+  30          * Parameters:  
+  31          *  void
+  32          *
+  33          * Return: 
+  34          *  void
+  35          *
+  36          * Global variables:
+  37          *  pwm_right_backup:  Variables of this global structure are modified to 
+  38          *  store the values of non retention configuration registers when Sleep() API is 
+  39          *  called.
+  40          *
+  41          * Reentrant:
+  42          *  No.
+  43          *
+  44          *******************************************************************************/
+  45          void pwm_right_SaveConfig(void)
+  46          {
+  47   1          
+  48   1          #if(!pwm_right_UsingFixedFunction)
+                      #if (pwm_right_PSOC3_ES2 || pwm_right_PSOC5_ES1)
+                          pwm_right_backup.PWMUdb = pwm_right_ReadCounter();
+                          pwm_right_backup.PWMPeriod = pwm_right_ReadPeriod();
+                          #if (pwm_right_UseStatus)
+                                              pwm_right_backup.InterruptMaskValue = pwm_right_STATUS_MASK;
+C51 COMPILER V9.03   PWM_RIGHT_PM                                                          05/13/2012 22:25:55 PAGE 2   
+
+                          #endif
+                                      
+                          #if(pwm_right_UseOneCompareMode)
+                              pwm_right_backup.PWMCompareValue = pwm_right_ReadCompare();
+                          #else
+                              pwm_right_backup.PWMCompareValue1 = pwm_right_ReadCompare1();
+                              pwm_right_backup.PWMCompareValue2 = pwm_right_ReadCompare2();
+                          #endif
+                          
+                         #if(pwm_right_DeadBandUsed)
+                              pwm_right_backup.PWMdeadBandValue = pwm_right_ReadDeadTime();
+                          #endif
+                        
+                          #if ( pwm_right_KillModeMinTime)
+                              pwm_right_backup.PWMKillCounterPeriod = pwm_right_ReadKillTime();
+                          #endif
+                      #endif
+                      
+                      #if (pwm_right_PSOC3_ES3 || pwm_right_PSOC5_ES2)
+                          pwm_right_backup.PWMUdb = pwm_right_ReadCounter();
+                          #if (pwm_right_UseStatus)
+                                              pwm_right_backup.InterruptMaskValue = pwm_right_STATUS_MASK;
+                                      #endif
+                          
+                          #if(pwm_right_DeadBandMode == pwm_right__B_PWM__DBM_256_CLOCKS || pwm_right_DeadBandMode == pw
+             -m_right__B_PWM__DBM_2_4_CLOCKS)
+                              pwm_right_backup.PWMdeadBandValue = pwm_right_ReadDeadTime();
+                          #endif
+                          
+                          #if(pwm_right_KillModeMinTime)
+                               pwm_right_backup.PWMKillCounterPeriod = pwm_right_ReadKillTime();
+                          #endif
+                      #endif
+                      
+                      #if(pwm_right_UseControl)
+                          pwm_right_backup.PWMControlRegister = pwm_right_ReadControlRegister();
+                      #endif
+                  #endif  
+  91   1      }
+  92          
+  93          
+  94          /*******************************************************************************
+  95          * Function Name: pwm_right_RestoreConfig
+  96          ********************************************************************************
+  97          * 
+  98          * Summary:
+  99          *  Restores the current user configuration of the component.
+ 100          *
+ 101          * Parameters:  
+ 102          *  void
+ 103          *
+ 104          * Return: 
+ 105          *  void
+ 106          *
+ 107          * Global variables:
+ 108          *  pwm_right_backup:  Variables of this global structure are used to restore 
+ 109          *  the values of non retention registers on wakeup from sleep mode.
+ 110          *
+ 111          * Reentrant:
+ 112          *  Yes.
+ 113          *
+ 114          *******************************************************************************/
+C51 COMPILER V9.03   PWM_RIGHT_PM                                                          05/13/2012 22:25:55 PAGE 3   
+
+ 115          void pwm_right_RestoreConfig(void) 
+ 116          {
+ 117   1              #if(!pwm_right_UsingFixedFunction)
+                          #if (pwm_right_PSOC3_ES2 || pwm_right_PSOC5_ES1)
+                              pwm_right_WriteCounter(pwm_right_backup.PWMUdb);
+                              pwm_right_WritePeriod(pwm_right_backup.PWMPeriod);
+                              #if (pwm_right_UseStatus)
+                                                      pwm_right_STATUS_MASK = pwm_right_backup.InterruptMaskValue;
+                              #endif
+                                              
+                              #if(pwm_right_UseOneCompareMode)
+                                  pwm_right_WriteCompare(pwm_right_backup.PWMCompareValue);
+                              #else
+                                  pwm_right_WriteCompare1(pwm_right_backup.PWMCompareValue1);
+                                  pwm_right_WriteCompare2(pwm_right_backup.PWMCompareValue2);
+                              #endif
+                              
+                             #if(pwm_right_DeadBandMode == pwm_right__B_PWM__DBM_256_CLOCKS || pwm_right_DeadBandMode ==
+             - pwm_right__B_PWM__DBM_2_4_CLOCKS)
+                                  pwm_right_WriteDeadTime(pwm_right_backup.PWMdeadBandValue);
+                              #endif
+                          
+                              #if ( pwm_right_KillModeMinTime)
+                                  pwm_right_WriteKillTime(pwm_right_backup.PWMKillCounterPeriod);
+                              #endif
+                          #endif
+                          
+                          #if (pwm_right_PSOC3_ES3 || pwm_right_PSOC5_ES2)
+                              pwm_right_WriteCounter(pwm_right_backup.PWMUdb);
+                              #if (pwm_right_UseStatus)
+                                  pwm_right_STATUS_MASK = pwm_right_backup.InterruptMaskValue;
+                              #endif
+                              
+                              #if(pwm_right_DeadBandMode == pwm_right__B_PWM__DBM_256_CLOCKS || pwm_right_DeadBandMode =
+             -= pwm_right__B_PWM__DBM_2_4_CLOCKS)
+                                  pwm_right_WriteDeadTime(pwm_right_backup.PWMdeadBandValue);
+                              #endif
+                              
+                              #if(pwm_right_KillModeMinTime)
+                                  pwm_right_WriteKillTime(pwm_right_backup.PWMKillCounterPeriod);
+                              #endif
+                          #endif
+                          
+                          #if(pwm_right_UseControl)
+                              pwm_right_WriteControlRegister(pwm_right_backup.PWMControlRegister); 
+                          #endif
+                      #endif  
+ 160   1          }
+ 161          
+ 162          
+ 163          /*******************************************************************************
+ 164          * Function Name: pwm_right_Sleep
+ 165          ********************************************************************************
+ 166          * 
+ 167          * Summary:
+ 168          *  Disables block's operation and saves the user configuration. Should be called 
+ 169          *  just prior to entering sleep.
+ 170          *  
+ 171          * Parameters:  
+ 172          *  void
+ 173          *
+ 174          * Return: 
+C51 COMPILER V9.03   PWM_RIGHT_PM                                                          05/13/2012 22:25:55 PAGE 4   
+
+ 175          *  void
+ 176          *
+ 177          * Global variables:
+ 178          *  pwm_right_backup.PWMEnableState:  Is modified depending on the enable state
+ 179          *  of the block before entering sleep mode.
+ 180          *
+ 181          * Reentrant:
+ 182          *  No.
+ 183          *
+ 184          *******************************************************************************/
+ 185          void pwm_right_Sleep(void)
+ 186          {
+ 187   1          #if(pwm_right_UseControl)
+ 188   1              if(pwm_right_CTRL_ENABLE == (pwm_right_CONTROL & pwm_right_CTRL_ENABLE))
+ 189   1              {
+ 190   2                  /*Component is enabled */
+ 191   2                  pwm_right_backup.PWMEnableState = 1u;
+ 192   2              }
+ 193   1              else
+ 194   1              {
+ 195   2                  /* Component is disabled */
+ 196   2                  pwm_right_backup.PWMEnableState = 0u;
+ 197   2              }
+ 198   1          #endif
+ 199   1          /* Stop component */
+ 200   1          pwm_right_Stop();
+ 201   1          
+ 202   1          /* Save registers configuration */
+ 203   1          pwm_right_SaveConfig();
+ 204   1      }
+ 205          
+ 206          
+ 207          /*******************************************************************************
+ 208          * Function Name: pwm_right_Wakeup
+ 209          ********************************************************************************
+ 210          * 
+ 211          * Summary:
+ 212          *  Restores and enables the user configuration. Should be called just after 
+ 213          *  awaking from sleep.
+ 214          *  
+ 215          * Parameters:  
+ 216          *  void
+ 217          *
+ 218          * Return: 
+ 219          *  void
+ 220          *
+ 221          * Global variables:
+ 222          *  pwm_right_backup.pwmEnable:  Is used to restore the enable state of 
+ 223          *  block on wakeup from sleep mode.
+ 224          *
+ 225          * Reentrant:
+ 226          *  Yes
+ 227          *
+ 228          *******************************************************************************/
+ 229          void pwm_right_Wakeup(void) 
+ 230          {
+ 231   1           /* Restore registers values */
+ 232   1          pwm_right_RestoreConfig();
+ 233   1          
+ 234   1          if(pwm_right_backup.PWMEnableState != 0u)
+ 235   1          {
+ 236   2              /* Enable component's operation */
+C51 COMPILER V9.03   PWM_RIGHT_PM                                                          05/13/2012 22:25:55 PAGE 5   
+
+ 237   2              pwm_right_Enable();
+ 238   2          } /* Do nothing if component's block was disabled before */
+ 239   1          
+ 240   1      }
+ 241          
+ 242          /* [] END OF FILE */
+C51 COMPILER V9.03   PWM_RIGHT_PM                                                          05/13/2012 22:25:55 PAGE 6   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION pwm_right_SaveConfig (BEGIN)
+                                           ; SOURCE LINE # 45
+                                           ; SOURCE LINE # 46
+                                           ; SOURCE LINE # 91
+0000 22                RET     
+             ; FUNCTION pwm_right_SaveConfig (END)
+
+             ; FUNCTION pwm_right_RestoreConfig (BEGIN)
+                                           ; SOURCE LINE # 115
+                                           ; SOURCE LINE # 116
+                                           ; SOURCE LINE # 160
+0000 22                RET     
+             ; FUNCTION pwm_right_RestoreConfig (END)
+
+             ; FUNCTION pwm_right_Sleep (BEGIN)
+                                           ; SOURCE LINE # 185
+                                           ; SOURCE LINE # 186
+                                           ; SOURCE LINE # 188
+0000 904F0C            MOV     DPTR,#04F0CH
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 5401              ANL     A,#01H
+0008 FF                MOV     R7,A
+0009 7E00              MOV     R6,#00H
+000B EF                MOV     A,R7
+000C 6401              XRL     A,#01H
+000E 4E                ORL     A,R6
+000F 7008              JNZ     ?C0003
+                                           ; SOURCE LINE # 189
+                                           ; SOURCE LINE # 191
+0011 900000      R     MOV     DPTR,#pwm_right_backup
+0014 7401              MOV     A,#01H
+0016 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 192
+0017 8005              SJMP    ?C0004
+0019         ?C0003:
+                                           ; SOURCE LINE # 194
+                                           ; SOURCE LINE # 196
+0019 900000      R     MOV     DPTR,#pwm_right_backup
+001C E4                CLR     A
+001D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 197
+001E         ?C0004:
+                                           ; SOURCE LINE # 200
+001E 120000      E     LCALL   pwm_right_Stop
+                                           ; SOURCE LINE # 203
+0021 120000      R     LCALL   pwm_right_SaveConfig
+                                           ; SOURCE LINE # 204
+0024 22                RET     
+             ; FUNCTION pwm_right_Sleep (END)
+
+             ; FUNCTION pwm_right_Wakeup (BEGIN)
+                                           ; SOURCE LINE # 229
+                                           ; SOURCE LINE # 230
+                                           ; SOURCE LINE # 232
+0000 120000      R     LCALL   pwm_right_RestoreConfig
+                                           ; SOURCE LINE # 234
+0003 900000      R     MOV     DPTR,#pwm_right_backup
+C51 COMPILER V9.03   PWM_RIGHT_PM                                                          05/13/2012 22:25:55 PAGE 7   
+
+0006 E0                MOVX    A,@DPTR
+0007 FF                MOV     R7,A
+0008 EF                MOV     A,R7
+0009 6003              JZ      ?C0007
+                                           ; SOURCE LINE # 235
+                                           ; SOURCE LINE # 237
+000B 120000      E     LCALL   pwm_right_Enable
+                                           ; SOURCE LINE # 238
+                                           ; SOURCE LINE # 240
+000E         ?C0007:
+000E 22                RET     
+             ; FUNCTION pwm_right_Wakeup (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     54    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      1    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

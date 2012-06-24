@@ -1,0 +1,52 @@
+C51 COMPILER V9.03   GLOBAL_VARIABLE                                                       05/13/2012 22:25:52 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE GLOBAL_VARIABLE
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\global_variable.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\glob
+                    -al_variable.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\global_variable.lst) CD DB NOIP OT(2,SIZE) 
+                    -INCDIR(Generated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\global_variable.obj)
+
+line level    source
+
+   1          /* ========================================
+   2           *
+   3           * Copyright YOUR COMPANY, THE YEAR
+   4           * All Rights Reserved
+   5           * UNPUBLISHED, LICENSED SOFTWARE.
+   6           *
+   7           * CONFIDENTIAL AND PROPRIETARY INFORMATION
+   8           * WHICH IS THE PROPERTY OF your company.
+   9           *
+  10           * ========================================
+  11          */
+  12          #include "trajectory.h"
+  13          #include "distance.h"
+  14          
+  15          struct trajectory rsT;
+  16          struct cartesian targets[4];
+  17          int8_t color_sign;
+  18          /* [] END OF FILE */
+C51 COMPILER V9.03   GLOBAL_VARIABLE                                                       05/13/2012 22:25:52 PAGE 2   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   ----    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    307    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

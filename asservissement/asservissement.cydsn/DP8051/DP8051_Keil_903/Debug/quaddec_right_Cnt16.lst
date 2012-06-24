@@ -1,0 +1,998 @@
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE QUADDEC_RIGHT_CNT16
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\quaddec_right_Cnt16.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\Gene
+                    -rated_Source\PSoC3\quaddec_right_Cnt16.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\quaddec_right_Cn
+                    -t16.lst) CD DB NOIP OT(2,SIZE) INCDIR(Generated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\quaddec_right_Cnt16.obj)
+
+line level    source
+
+   1          /*******************************************************************************
+   2          * File Name: quaddec_right_Cnt16.c  
+   3          * Version 1.50
+   4          *
+   5          *  Description:
+   6          *     The Counter User Module consists of a 8, 16, 24 or 32-bit counter with
+   7          *     a selectable period between 2 and 2^Width - 1.  
+   8          *
+   9          *   Note:
+  10          *     None
+  11          *
+  12          *******************************************************************************
+  13          * Copyright 2008-2010, Cypress Semiconductor Corporation.  All rights reserved.
+  14          * You may use this file only in accordance with the license, terms, conditions, 
+  15          * disclaimers, and limitations in the end user license agreement accompanying 
+  16          * the software package with which this file was provided.
+  17          ********************************************************************************/
+  18          
+  19          #include "quaddec_right_Cnt16.h"
+  20          
+  21          uint8 quaddec_right_Cnt16_initVar = 0u;
+  22          
+  23          
+  24          /*******************************************************************************
+  25          * Function Name: quaddec_right_Cnt16_Init
+  26          ********************************************************************************
+  27          * Summary:
+  28          *     Initialize to the schematic state
+  29          * 
+  30          * Parameters:  
+  31          *  void  
+  32          *
+  33          * Return: 
+  34          *  void
+  35          *
+  36          * Reentrant
+  37          *  Yes
+  38          *
+  39          *******************************************************************************/
+  40          void quaddec_right_Cnt16_Init(void) 
+  41          {
+  42   1              #if (!quaddec_right_Cnt16_UsingFixedFunction && !quaddec_right_Cnt16_ControlRegRemoved)
+  43   1                  uint8 ctrl;
+  44   1              #endif
+  45   1              
+  46   1              #if (quaddec_right_Cnt16_UsingFixedFunction)
+                          /* Clear all bits but the enable bit (if it's already set for Timer operation */
+                          quaddec_right_Cnt16_CONTROL &= quaddec_right_Cnt16_CTRL_ENABLE;
+                          
+                          /* Clear the mode bits for continuous run mode */
+                          #if (quaddec_right_Cnt16_PSOC3_ES2 || quaddec_right_Cnt16_PSOC5_ES1)
+                              quaddec_right_Cnt16_CONTROL2 &= ~quaddec_right_Cnt16_CTRL_MODE_MASK;
+                          #endif
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 2   
+
+                          #if (quaddec_right_Cnt16_PSOC3_ES3 || quaddec_right_Cnt16_PSOC5_ES2)
+                              quaddec_right_Cnt16_CONTROL3 &= ~quaddec_right_Cnt16_CTRL_MODE_MASK;                
+                          #endif
+                          /* Check if One Shot mode is enabled i.e. RunMode !=0*/
+                          #if (quaddec_right_Cnt16_RunModeUsed != 0x0u)
+                              /* Set 3rd bit of Control register to enable one shot mode */
+                              quaddec_right_Cnt16_CONTROL |= 0x04u;
+                          #endif
+                          
+                          /* Set the IRQ to use the status register interrupts */
+                          quaddec_right_Cnt16_CONTROL2 |= quaddec_right_Cnt16_CTRL2_IRQ_SEL;
+                      #else
+  66   1                  #if(!quaddec_right_Cnt16_ControlRegRemoved)
+  67   1                  /* Set the default compare mode defined in the parameter */
+  68   1                  ctrl = quaddec_right_Cnt16_CONTROL & ~quaddec_right_Cnt16_CTRL_CMPMODE_MASK;
+  69   1                  quaddec_right_Cnt16_CONTROL = ctrl | quaddec_right_Cnt16_DEFAULT_COMPARE_MODE;
+  70   1                  
+  71   1                  /* Set the default capture mode defined in the parameter */
+  72   1                  ctrl = quaddec_right_Cnt16_CONTROL & ~quaddec_right_Cnt16_CTRL_CAPMODE_MASK;
+  73   1                  quaddec_right_Cnt16_CONTROL = ctrl | quaddec_right_Cnt16_DEFAULT_CAPTURE_MODE;
+  74   1                  #endif
+  75   1              #endif 
+  76   1              
+  77   1              /* Clear all data in the FIFO's */
+  78   1              #if (!quaddec_right_Cnt16_UsingFixedFunction)
+  79   1                  quaddec_right_Cnt16_ClearFIFO();
+  80   1              #endif
+  81   1              
+  82   1              /* Set Initial values from Configuration */
+  83   1              quaddec_right_Cnt16_WritePeriod(quaddec_right_Cnt16_INIT_PERIOD_VALUE);
+  84   1              quaddec_right_Cnt16_WriteCounter(quaddec_right_Cnt16_INIT_COUNTER_VALUE);
+  85   1              quaddec_right_Cnt16_SetInterruptMode(quaddec_right_Cnt16_INIT_INTERRUPTS_MASK);
+  86   1              
+  87   1              #if (!quaddec_right_Cnt16_UsingFixedFunction)
+  88   1                  /* Read the status register to clear the unwanted interrupts */
+  89   1                  quaddec_right_Cnt16_ReadStatusRegister();
+  90   1                  /* Set the compare value (only available to non-fixed function implementation */
+  91   1                  quaddec_right_Cnt16_WriteCompare(quaddec_right_Cnt16_INIT_COMPARE_VALUE);
+  92   1                  /* Use the interrupt output of the status register for IRQ output */
+  93   1                  quaddec_right_Cnt16_STATUS_AUX_CTRL |= quaddec_right_Cnt16_STATUS_ACTL_INT_EN_MASK;
+  94   1              #endif
+  95   1      }
+  96          
+  97          
+  98          /*******************************************************************************
+  99          * Function Name: quaddec_right_Cnt16_Enable
+ 100          ********************************************************************************
+ 101          * Summary:
+ 102          *     Enable the Counter
+ 103          * 
+ 104          * Parameters:  
+ 105          *  void  
+ 106          *
+ 107          * Return: 
+ 108          *  void
+ 109          *
+ 110          * Side Effects: 
+ 111          *   If the Enable mode is set to Hardware only then this function has no effect 
+ 112          *   on the operation of the counter.
+ 113          *
+ 114          * Reentrant
+ 115          *  Yes
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 3   
+
+ 116          *
+ 117          *******************************************************************************/
+ 118          void quaddec_right_Cnt16_Enable(void) 
+ 119          {
+ 120   1          /* Globally Enable the Fixed Function Block chosen */
+ 121   1          #if (quaddec_right_Cnt16_UsingFixedFunction)
+                      quaddec_right_Cnt16_GLOBAL_ENABLE |= quaddec_right_Cnt16_BLOCK_EN_MASK;
+                      quaddec_right_Cnt16_GLOBAL_STBY_ENABLE |= quaddec_right_Cnt16_BLOCK_STBY_EN_MASK;
+                  #endif   
+ 125   1              
+ 126   1          /* Enable the counter from the control register  */
+ 127   1          /* If Fixed Function then make sure Mode is set correctly */
+ 128   1          /* else make sure reset is clear */
+ 129   1          #if(!quaddec_right_Cnt16_ControlRegRemoved || quaddec_right_Cnt16_UsingFixedFunction)
+ 130   1              quaddec_right_Cnt16_CONTROL |= quaddec_right_Cnt16_CTRL_ENABLE;                
+ 131   1          #endif
+ 132   1          
+ 133   1      }
+ 134          
+ 135          
+ 136          /*******************************************************************************
+ 137          * Function Name: quaddec_right_Cnt16_Start
+ 138          ********************************************************************************
+ 139          * Summary:
+ 140          *  Enables the counter for operation 
+ 141          *
+ 142          * Parameters:  
+ 143          *  void  
+ 144          *
+ 145          * Return: 
+ 146          *  void
+ 147          *
+ 148          * Global variables:
+ 149          *  quaddec_right_Cnt16_initVar: Is modified when this function is called for the first 
+ 150          *   time. Is used to ensure that initialization happens only once.
+ 151          *
+ 152          * Reentrant
+ 153          *  No
+ 154          *
+ 155          *******************************************************************************/
+ 156          void quaddec_right_Cnt16_Start(void) 
+ 157          {
+ 158   1          if(quaddec_right_Cnt16_initVar == 0u)
+ 159   1          {
+ 160   2              quaddec_right_Cnt16_Init();
+ 161   2              
+ 162   2              quaddec_right_Cnt16_initVar = 1u; /* Clear this bit for Initialization */        
+ 163   2          }
+ 164   1          
+ 165   1          /* Enable the Counter */
+ 166   1          quaddec_right_Cnt16_Enable();        
+ 167   1      }
+ 168          
+ 169          
+ 170          /*******************************************************************************
+ 171          * Function Name: quaddec_right_Cnt16_Stop
+ 172          ********************************************************************************
+ 173          * Summary:
+ 174          * Halts the counter, but does not change any modes or disable interrupts.
+ 175          *
+ 176          * Parameters:  
+ 177          *  void  
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 4   
+
+ 178          *
+ 179          * Return: 
+ 180          *  void
+ 181          *
+ 182          * Side Effects: If the Enable mode is set to Hardware only then this function
+ 183          *               has no effect on the operation of the counter.
+ 184          *
+ 185          * Reentrant
+ 186          *  Yes
+ 187          *
+ 188          *******************************************************************************/
+ 189          void quaddec_right_Cnt16_Stop(void) 
+ 190          {
+ 191   1          /* Disable Counter */
+ 192   1          #if(!quaddec_right_Cnt16_ControlRegRemoved || quaddec_right_Cnt16_UsingFixedFunction)
+ 193   1              quaddec_right_Cnt16_CONTROL &= ~quaddec_right_Cnt16_CTRL_ENABLE;        
+ 194   1          #endif
+ 195   1          
+ 196   1          /* Globally disable the Fixed Function Block chosen */
+ 197   1          #if (quaddec_right_Cnt16_UsingFixedFunction)
+                      quaddec_right_Cnt16_GLOBAL_ENABLE &= ~quaddec_right_Cnt16_BLOCK_EN_MASK;
+                      quaddec_right_Cnt16_GLOBAL_STBY_ENABLE &= ~quaddec_right_Cnt16_BLOCK_STBY_EN_MASK;
+                  #endif
+ 201   1      }
+ 202          
+ 203          
+ 204          /*******************************************************************************
+ 205          * Function Name: quaddec_right_Cnt16_SetInterruptMode
+ 206          ********************************************************************************
+ 207          * Summary:
+ 208          * Configures which interrupt sources are enabled to generate the final interrupt
+ 209          *
+ 210          * Parameters:  
+ 211          *  InterruptsMask: This parameter is an or'd collection of the status bits
+ 212          *                   which will be allowed to generate the counters interrupt.   
+ 213          *
+ 214          * Return: 
+ 215          *  void
+ 216          *
+ 217          * Reentrant
+ 218          *  Yes
+ 219          *
+ 220          *******************************************************************************/
+ 221          void quaddec_right_Cnt16_SetInterruptMode(uint8 interruptsMask) 
+ 222          {
+ 223   1          quaddec_right_Cnt16_STATUS_MASK = interruptsMask;
+ 224   1      }
+ 225          
+ 226          
+ 227          /*******************************************************************************
+ 228          * Function Name: quaddec_right_Cnt16_GetInterruptSource
+ 229          ********************************************************************************
+ 230          * Summary:
+ 231          * Returns the status register with data about the interrupt source.
+ 232          *
+ 233          * Parameters:  
+ 234          *  void:  
+ 235          *
+ 236          * Return: 
+ 237          *  (uint8): Status Register Bit-Field of interrupt source(s)
+ 238          *
+ 239          * Side Effects:  The Status register may be clear on read and all interrupt
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 5   
+
+ 240          *                sources must be handled.
+ 241          *
+ 242          * Reentrant
+ 243          *  Yes
+ 244          *
+ 245          *******************************************************************************/
+ 246          uint8 quaddec_right_Cnt16_GetInterruptSource(void) 
+ 247          {
+ 248   1          return quaddec_right_Cnt16_STATUS;
+ 249   1      }
+ 250          
+ 251          
+ 252          /*******************************************************************************
+ 253          * Function Name: quaddec_right_Cnt16_ReadStatusRegister
+ 254          ********************************************************************************
+ 255          * Summary:
+ 256          *   Reads the status register and returns it's state. This function should use
+ 257          *       defined types for the bit-field information as the bits in this
+ 258          *       register may be permuteable.
+ 259          *
+ 260          * Parameters:  
+ 261          *  void
+ 262          *
+ 263          * Return: 
+ 264          *  (uint8) The contents of the status register
+ 265          *
+ 266          * Side Effects:
+ 267          *   Status register bits may be clear on read. 
+ 268          *
+ 269          * Reentrant
+ 270          *  Yes
+ 271          *
+ 272          *******************************************************************************/
+ 273          uint8   quaddec_right_Cnt16_ReadStatusRegister(void) 
+ 274          {
+ 275   1          return quaddec_right_Cnt16_STATUS;
+ 276   1      }
+ 277          
+ 278          
+ 279          #if(!quaddec_right_Cnt16_ControlRegRemoved)
+ 280          /*******************************************************************************
+ 281          * Function Name: quaddec_right_Cnt16_ReadControlRegister
+ 282          ********************************************************************************
+ 283          * Summary:
+ 284          *   Reads the control register and returns it's state. This function should use
+ 285          *       defined types for the bit-field information as the bits in this
+ 286          *       register may be permuteable.
+ 287          *
+ 288          * Parameters:  
+ 289          *  void
+ 290          *
+ 291          * Return: 
+ 292          *  (uint8) The contents of the control register
+ 293          *
+ 294          * Reentrant
+ 295          *  Yes
+ 296          *
+ 297          *******************************************************************************/
+ 298          uint8   quaddec_right_Cnt16_ReadControlRegister(void) 
+ 299          {
+ 300   1          return quaddec_right_Cnt16_CONTROL;
+ 301   1      }
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 6   
+
+ 302          
+ 303          
+ 304          /*******************************************************************************
+ 305          * Function Name: quaddec_right_Cnt16_WriteControlRegister
+ 306          ********************************************************************************
+ 307          * Summary:
+ 308          *   Sets the bit-field of the control register.  This function should use
+ 309          *       defined types for the bit-field information as the bits in this
+ 310          *       register may be permuteable.
+ 311          *
+ 312          * Parameters:  
+ 313          *  void
+ 314          *
+ 315          * Return: 
+ 316          *  (uint8) The contents of the control register
+ 317          *   
+ 318          * Reentrant
+ 319          *  Yes
+ 320          *
+ 321          *******************************************************************************/
+ 322          void    quaddec_right_Cnt16_WriteControlRegister(uint8 control) 
+ 323          {
+ 324   1          quaddec_right_Cnt16_CONTROL = control;
+ 325   1      }
+ 326          
+ 327          #endif  /* (!quaddec_right_Cnt16_ControlRegRemoved) */
+ 328          
+ 329          
+ 330          /*******************************************************************************
+ 331          * Function Name: quaddec_right_Cnt16_WriteCounter
+ 332          ********************************************************************************
+ 333          * Summary:
+ 334          *   This funtion is used to set the counter to a specific value
+ 335          *
+ 336          * Parameters:  
+ 337          *  counter:  New counter value. 
+ 338          *
+ 339          * Return: 
+ 340          *  void 
+ 341          *
+ 342          * Reentrant
+ 343          *  Yes
+ 344          *
+ 345          *******************************************************************************/
+ 346          void quaddec_right_Cnt16_WriteCounter(uint16 counter) 
+ 347          {
+ 348   1          #if(quaddec_right_Cnt16_UsingFixedFunction)
+                      CY_SET_REG16(quaddec_right_Cnt16_COUNTER_LSB_PTR, (uint16)counter);
+                  #else
+ 351   1              CY_SET_REG16(quaddec_right_Cnt16_COUNTER_LSB_PTR, counter);
+ 352   1          #endif
+ 353   1      }
+ 354          
+ 355          
+ 356          /*******************************************************************************
+ 357          * Function Name: quaddec_right_Cnt16_ReadCounter
+ 358          ********************************************************************************
+ 359          * Summary:
+ 360          * Returns the current value of the counter.  It doesn't matter
+ 361          * if the counter is enabled or running.
+ 362          *
+ 363          * Parameters:  
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 7   
+
+ 364          *  void:  
+ 365          *
+ 366          * Return: 
+ 367          *  (uint16) The present value of the counter.
+ 368          *
+ 369          * Reentrant
+ 370          *  Yes
+ 371          *
+ 372          *******************************************************************************/
+ 373          uint16 quaddec_right_Cnt16_ReadCounter(void) 
+ 374          {
+ 375   1          /* Force capture by reading Accumulator */
+ 376   1          /* Must first do a software capture to be able to read the counter */
+ 377   1          /* It is up to the user code to make sure there isn't already captured data in the FIFO */
+ 378   1          CY_GET_REG8(quaddec_right_Cnt16_COUNTER_LSB_PTR);
+ 379   1          
+ 380   1          /* Read the data from the FIFO (or capture register for Fixed Function)*/
+ 381   1          return (CY_GET_REG16(quaddec_right_Cnt16_STATICCOUNT_LSB_PTR));
+ 382   1      }
+ 383          
+ 384          
+ 385          /*******************************************************************************
+ 386          * Function Name: quaddec_right_Cnt16_ReadCapture
+ 387          ********************************************************************************
+ 388          * Summary:
+ 389          *   This function returns the last value captured.
+ 390          *
+ 391          * Parameters:  
+ 392          *  void
+ 393          *
+ 394          * Return: 
+ 395          *  (uint16) Present Capture value.
+ 396          *
+ 397          * Reentrant
+ 398          *  Yes
+ 399          *
+ 400          *******************************************************************************/
+ 401          uint16 quaddec_right_Cnt16_ReadCapture(void) 
+ 402          {
+ 403   1         return ( CY_GET_REG16(quaddec_right_Cnt16_STATICCOUNT_LSB_PTR) );  
+ 404   1      }
+ 405          
+ 406          
+ 407          /*******************************************************************************
+ 408          * Function Name: quaddec_right_Cnt16_WritePeriod
+ 409          ********************************************************************************
+ 410          * Summary:
+ 411          * Changes the period of the counter.  The new period 
+ 412          * will be loaded the next time terminal count is detected.
+ 413          *
+ 414          * Parameters:  
+ 415          *  period: (uint16) A value of 0 will result in
+ 416          *         the counter remaining at zero.  
+ 417          *
+ 418          * Return: 
+ 419          *  void
+ 420          *
+ 421          * Reentrant
+ 422          *  Yes
+ 423          *
+ 424          *******************************************************************************/
+ 425          void quaddec_right_Cnt16_WritePeriod(uint16 period) 
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 8   
+
+ 426          {
+ 427   1          #if(quaddec_right_Cnt16_UsingFixedFunction)
+                      CY_SET_REG16(quaddec_right_Cnt16_PERIOD_LSB_PTR,(uint16)period);
+                  #else
+ 430   1              CY_SET_REG16(quaddec_right_Cnt16_PERIOD_LSB_PTR,period);
+ 431   1          #endif
+ 432   1      }
+ 433          
+ 434          
+ 435          /*******************************************************************************
+ 436          * Function Name: quaddec_right_Cnt16_ReadPeriod
+ 437          ********************************************************************************
+ 438          * Summary:
+ 439          * Reads the current period value without affecting counter operation.
+ 440          *
+ 441          * Parameters:  
+ 442          *  void:  
+ 443          *
+ 444          * Return: 
+ 445          *  (uint16) Present period value.
+ 446          *
+ 447          * Reentrant
+ 448          *  Yes
+ 449          *
+ 450          *******************************************************************************/
+ 451          uint16 quaddec_right_Cnt16_ReadPeriod(void) 
+ 452          {
+ 453   1         return ( CY_GET_REG16(quaddec_right_Cnt16_PERIOD_LSB_PTR));
+ 454   1      }
+ 455          
+ 456          
+ 457          #if (!quaddec_right_Cnt16_UsingFixedFunction)
+ 458          /*******************************************************************************
+ 459          * Function Name: quaddec_right_Cnt16_WriteCompare
+ 460          ********************************************************************************
+ 461          * Summary:
+ 462          * Changes the compare value.  The compare output will 
+ 463          * reflect the new value on the next UDB clock.  The compare output will be 
+ 464          * driven high when the present counter value compares true based on the 
+ 465          * configured compare mode setting. 
+ 466          *
+ 467          * Parameters:  
+ 468          *  Compare:  New compare value. 
+ 469          *
+ 470          * Return: 
+ 471          *  void
+ 472          *
+ 473          * Reentrant
+ 474          *  Yes
+ 475          *
+ 476          *******************************************************************************/
+ 477          void quaddec_right_Cnt16_WriteCompare(uint16 compare) 
+ 478          {
+ 479   1          #if(quaddec_right_Cnt16_UsingFixedFunction)
+                      CY_SET_REG16(quaddec_right_Cnt16_COMPARE_LSB_PTR,(uint16)compare);
+                  #else
+ 482   1              CY_SET_REG16(quaddec_right_Cnt16_COMPARE_LSB_PTR,compare);
+ 483   1          #endif
+ 484   1      }
+ 485          
+ 486          
+ 487          /*******************************************************************************
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 9   
+
+ 488          * Function Name: quaddec_right_Cnt16_ReadCompare
+ 489          ********************************************************************************
+ 490          * Summary:
+ 491          * Returns the compare value.
+ 492          *
+ 493          * Parameters:  
+ 494          *  void:
+ 495          *
+ 496          * Return: 
+ 497          *  (uint16) Present compare value.
+ 498          *
+ 499          * Reentrant
+ 500          *  Yes
+ 501          *
+ 502          *******************************************************************************/
+ 503          uint16 quaddec_right_Cnt16_ReadCompare(void) 
+ 504          {
+ 505   1         return ( CY_GET_REG16(quaddec_right_Cnt16_COMPARE_LSB_PTR));
+ 506   1      }
+ 507          
+ 508          
+ 509          #if (quaddec_right_Cnt16_COMPARE_MODE_SOFTWARE)
+              /*******************************************************************************
+              * Function Name: quaddec_right_Cnt16_SetCompareMode
+              ********************************************************************************
+              * Summary:
+              *  Sets the software controlled Compare Mode.
+              *
+              * Parameters:
+              *  compareMode:  Compare Mode Enumerated Type.
+              *
+              * Return:
+              *  void
+              *
+              * Reentrant
+              *  Yes
+              *
+              *******************************************************************************/
+              void quaddec_right_Cnt16_SetCompareMode(uint8 compareMode) 
+              {
+                  /* Clear the compare mode bits in the control register */
+                  quaddec_right_Cnt16_CONTROL &= ~quaddec_right_Cnt16_CTRL_CMPMODE_MASK;
+                  
+                  /* Write the new setting */
+                  quaddec_right_Cnt16_CONTROL |= (compareMode << quaddec_right_Cnt16_CTRL_CMPMODE0_SHIFT);
+              }
+              #endif  /* (quaddec_right_Cnt16_COMPARE_MODE_SOFTWARE) */
+ 535          
+ 536          
+ 537          #if (quaddec_right_Cnt16_CAPTURE_MODE_SOFTWARE)
+              /*******************************************************************************
+              * Function Name: quaddec_right_Cnt16_SetCaptureMode
+              ********************************************************************************
+              * Summary:
+              *  Sets the software controlled Capture Mode.
+              *
+              * Parameters:
+              *  captureMode:  Capture Mode Enumerated Type.
+              *
+              * Return:
+              *  void
+              *
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 10  
+
+              * Reentrant
+              *  Yes
+              *
+              *******************************************************************************/
+              void quaddec_right_Cnt16_SetCaptureMode(uint8 captureMode) 
+              {
+                  /* Clear the capture mode bits in the control register */
+                  quaddec_right_Cnt16_CONTROL &= ~quaddec_right_Cnt16_CTRL_CAPMODE_MASK;
+                  
+                  /* Write the new setting */
+                  quaddec_right_Cnt16_CONTROL |= (captureMode << quaddec_right_Cnt16_CTRL_CAPMODE0_SHIFT);
+              }
+              #endif  /* (quaddec_right_Cnt16_CAPTURE_MODE_SOFTWARE) */
+ 563          
+ 564          
+ 565          /*******************************************************************************
+ 566          * Function Name: quaddec_right_Cnt16_ClearFIFO
+ 567          ********************************************************************************
+ 568          * Summary:
+ 569          *   This function clears all capture data from the capture FIFO
+ 570          *
+ 571          * Parameters:  
+ 572          *  void:
+ 573          *
+ 574          * Return: 
+ 575          *  None
+ 576          *
+ 577          * Reentrant
+ 578          *  Yes
+ 579          *
+ 580          *******************************************************************************/
+ 581          void quaddec_right_Cnt16_ClearFIFO(void) 
+ 582          {
+ 583   1      
+ 584   1          while(quaddec_right_Cnt16_ReadStatusRegister() & quaddec_right_Cnt16_STATUS_FIFONEMP)
+ 585   1          {
+ 586   2              quaddec_right_Cnt16_ReadCapture();
+ 587   2          }
+ 588   1      
+ 589   1      }
+ 590          #endif  /* (!quaddec_right_Cnt16_UsingFixedFunction) */
+ 591          
+ 592          
+ 593          /* [] END OF FILE */
+ 594          
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 11  
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION quaddec_right_Cnt16_Init (BEGIN)
+                                           ; SOURCE LINE # 40
+                                           ; SOURCE LINE # 41
+                                           ; SOURCE LINE # 68
+0000 906578            MOV     DPTR,#06578H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 54F8              ANL     A,#0F8H
+0008 FF                MOV     R7,A
+0009 900000      R     MOV     DPTR,#ctrl
+000C EF                MOV     A,R7
+000D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 69
+000E 900000      R     MOV     DPTR,#ctrl
+0011 E0                MOVX    A,@DPTR
+0012 FF                MOV     R7,A
+0013 906578            MOV     DPTR,#06578H
+0016 EF                MOV     A,R7
+0017 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 72
+0018 906578            MOV     DPTR,#06578H
+001B E0                MOVX    A,@DPTR
+001C FF                MOV     R7,A
+001D EF                MOV     A,R7
+001E 54E7              ANL     A,#0E7H
+0020 FF                MOV     R7,A
+0021 900000      R     MOV     DPTR,#ctrl
+0024 EF                MOV     A,R7
+0025 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 73
+0026 900000      R     MOV     DPTR,#ctrl
+0029 E0                MOVX    A,@DPTR
+002A FF                MOV     R7,A
+002B 906578            MOV     DPTR,#06578H
+002E EF                MOV     A,R7
+002F F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 79
+0030 120000      R     LCALL   quaddec_right_Cnt16_ClearFIFO
+                                           ; SOURCE LINE # 83
+0033 7F00              MOV     R7,#00H
+0035 7E80              MOV     R6,#080H
+0037 120000      R     LCALL   _quaddec_right_Cnt16_WritePeriod
+                                           ; SOURCE LINE # 84
+003A 7F00              MOV     R7,#00H
+003C 7E80              MOV     R6,#080H
+003E 120000      R     LCALL   _quaddec_right_Cnt16_WriteCounter
+                                           ; SOURCE LINE # 85
+0041 7F00              MOV     R7,#00H
+0043 120000      R     LCALL   _quaddec_right_Cnt16_SetInterruptMode
+                                           ; SOURCE LINE # 89
+0046 120000      R     LCALL   quaddec_right_Cnt16_ReadStatusRegister
+                                           ; SOURCE LINE # 91
+0049 7F00              MOV     R7,#00H
+004B 7E80              MOV     R6,#080H
+004D 120000      R     LCALL   _quaddec_right_Cnt16_WriteCompare
+                                           ; SOURCE LINE # 93
+0050 906498            MOV     DPTR,#06498H
+0053 E0                MOVX    A,@DPTR
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 12  
+
+0054 FF                MOV     R7,A
+0055 EF                MOV     A,R7
+0056 4410              ORL     A,#010H
+0058 FF                MOV     R7,A
+0059 EF                MOV     A,R7
+005A F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 95
+005B 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_Init (END)
+
+             ; FUNCTION quaddec_right_Cnt16_Enable (BEGIN)
+                                           ; SOURCE LINE # 118
+                                           ; SOURCE LINE # 119
+                                           ; SOURCE LINE # 130
+0000 906578            MOV     DPTR,#06578H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 4480              ORL     A,#080H
+0008 FF                MOV     R7,A
+0009 EF                MOV     A,R7
+000A F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 133
+000B 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_Enable (END)
+
+             ; FUNCTION quaddec_right_Cnt16_Start (BEGIN)
+                                           ; SOURCE LINE # 156
+                                           ; SOURCE LINE # 157
+                                           ; SOURCE LINE # 158
+0000 900000      R     MOV     DPTR,#quaddec_right_Cnt16_initVar
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 7009              JNZ     ?C0003
+                                           ; SOURCE LINE # 159
+                                           ; SOURCE LINE # 160
+0008 120000      R     LCALL   quaddec_right_Cnt16_Init
+                                           ; SOURCE LINE # 162
+000B 900000      R     MOV     DPTR,#quaddec_right_Cnt16_initVar
+000E 7401              MOV     A,#01H
+0010 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 163
+0011         ?C0003:
+                                           ; SOURCE LINE # 166
+0011 120000      R     LCALL   quaddec_right_Cnt16_Enable
+                                           ; SOURCE LINE # 167
+0014 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_Start (END)
+
+             ; FUNCTION quaddec_right_Cnt16_Stop (BEGIN)
+                                           ; SOURCE LINE # 189
+                                           ; SOURCE LINE # 190
+                                           ; SOURCE LINE # 193
+0000 906578            MOV     DPTR,#06578H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 547F              ANL     A,#07FH
+0008 FF                MOV     R7,A
+0009 EF                MOV     A,R7
+000A F0                MOVX    @DPTR,A
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 13  
+
+                                           ; SOURCE LINE # 201
+000B 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_Stop (END)
+
+             ; FUNCTION _quaddec_right_Cnt16_SetInterruptMode (BEGIN)
+                                           ; SOURCE LINE # 221
+0000 900000      R     MOV     DPTR,#interruptsMask
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 222
+                                           ; SOURCE LINE # 223
+0005 900000      R     MOV     DPTR,#interruptsMask
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A 906488            MOV     DPTR,#06488H
+000D EF                MOV     A,R7
+000E F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 224
+000F 22                RET     
+             ; FUNCTION _quaddec_right_Cnt16_SetInterruptMode (END)
+
+             ; FUNCTION quaddec_right_Cnt16_GetInterruptSource (BEGIN)
+                                           ; SOURCE LINE # 246
+                                           ; SOURCE LINE # 247
+                                           ; SOURCE LINE # 248
+0000 906468            MOV     DPTR,#06468H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+                                           ; SOURCE LINE # 249
+0005         ?C0007:
+0005 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_GetInterruptSource (END)
+
+             ; FUNCTION quaddec_right_Cnt16_ReadStatusRegister (BEGIN)
+                                           ; SOURCE LINE # 273
+                                           ; SOURCE LINE # 274
+                                           ; SOURCE LINE # 275
+0000 906468            MOV     DPTR,#06468H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+                                           ; SOURCE LINE # 276
+0005         ?C0008:
+0005 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_ReadStatusRegister (END)
+
+             ; FUNCTION quaddec_right_Cnt16_ReadControlRegister (BEGIN)
+                                           ; SOURCE LINE # 298
+                                           ; SOURCE LINE # 299
+                                           ; SOURCE LINE # 300
+0000 906578            MOV     DPTR,#06578H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+                                           ; SOURCE LINE # 301
+0005         ?C0009:
+0005 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_ReadControlRegister (END)
+
+             ; FUNCTION _quaddec_right_Cnt16_WriteControlRegister (BEGIN)
+                                           ; SOURCE LINE # 322
+0000 900000      R     MOV     DPTR,#control
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 14  
+
+                                           ; SOURCE LINE # 323
+                                           ; SOURCE LINE # 324
+0005 900000      R     MOV     DPTR,#control
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A 906578            MOV     DPTR,#06578H
+000D EF                MOV     A,R7
+000E F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 325
+000F 22                RET     
+             ; FUNCTION _quaddec_right_Cnt16_WriteControlRegister (END)
+
+             ; FUNCTION _quaddec_right_Cnt16_WriteCounter (BEGIN)
+                                           ; SOURCE LINE # 346
+0000 900000      R     MOV     DPTR,#counter
+0003 EE                MOV     A,R6
+0004 F0                MOVX    @DPTR,A
+0005 A3                INC     DPTR
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 347
+                                           ; SOURCE LINE # 351
+0008 7B02              MOV     R3,#02H
+000A 7A64              MOV     R2,#064H
+000C 7907              MOV     R1,#07H
+000E 900000      R     MOV     DPTR,#counter
+0011 E0                MOVX    A,@DPTR
+0012 FC                MOV     R4,A
+0013 A3                INC     DPTR
+0014 E0                MOVX    A,@DPTR
+0015 FD                MOV     R5,A
+0016 120000      E     LCALL   _cywrite16_nodpx
+                                           ; SOURCE LINE # 353
+0019 22                RET     
+             ; FUNCTION _quaddec_right_Cnt16_WriteCounter (END)
+
+             ; FUNCTION quaddec_right_Cnt16_ReadCounter (BEGIN)
+                                           ; SOURCE LINE # 373
+                                           ; SOURCE LINE # 374
+                                           ; SOURCE LINE # 378
+0000 906407            MOV     DPTR,#06407H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+                                           ; SOURCE LINE # 381
+0005 7B02              MOV     R3,#02H
+0007 7A64              MOV     R2,#064H
+0009 7947              MOV     R1,#047H
+000B 120000      E     LCALL   _cyread16_nodpx
+                                           ; SOURCE LINE # 382
+000E         ?C0012:
+000E 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_ReadCounter (END)
+
+             ; FUNCTION quaddec_right_Cnt16_ReadCapture (BEGIN)
+                                           ; SOURCE LINE # 401
+                                           ; SOURCE LINE # 402
+                                           ; SOURCE LINE # 403
+0000 7B02              MOV     R3,#02H
+0002 7A64              MOV     R2,#064H
+0004 7947              MOV     R1,#047H
+0006 120000      E     LCALL   _cyread16_nodpx
+                                           ; SOURCE LINE # 404
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 15  
+
+0009         ?C0013:
+0009 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_ReadCapture (END)
+
+             ; FUNCTION _quaddec_right_Cnt16_WritePeriod (BEGIN)
+                                           ; SOURCE LINE # 425
+0000 900000      R     MOV     DPTR,#period
+0003 EE                MOV     A,R6
+0004 F0                MOVX    @DPTR,A
+0005 A3                INC     DPTR
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 426
+                                           ; SOURCE LINE # 430
+0008 7B02              MOV     R3,#02H
+000A 7A64              MOV     R2,#064H
+000C 7927              MOV     R1,#027H
+000E 900000      R     MOV     DPTR,#period
+0011 E0                MOVX    A,@DPTR
+0012 FC                MOV     R4,A
+0013 A3                INC     DPTR
+0014 E0                MOVX    A,@DPTR
+0015 FD                MOV     R5,A
+0016 120000      E     LCALL   _cywrite16_nodpx
+                                           ; SOURCE LINE # 432
+0019 22                RET     
+             ; FUNCTION _quaddec_right_Cnt16_WritePeriod (END)
+
+             ; FUNCTION quaddec_right_Cnt16_ReadPeriod (BEGIN)
+                                           ; SOURCE LINE # 451
+                                           ; SOURCE LINE # 452
+                                           ; SOURCE LINE # 453
+0000 7B02              MOV     R3,#02H
+0002 7A64              MOV     R2,#064H
+0004 7927              MOV     R1,#027H
+0006 120000      E     LCALL   _cyread16_nodpx
+                                           ; SOURCE LINE # 454
+0009         ?C0015:
+0009 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_ReadPeriod (END)
+
+             ; FUNCTION _quaddec_right_Cnt16_WriteCompare (BEGIN)
+                                           ; SOURCE LINE # 477
+0000 900000      R     MOV     DPTR,#compare
+0003 EE                MOV     A,R6
+0004 F0                MOVX    @DPTR,A
+0005 A3                INC     DPTR
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 478
+                                           ; SOURCE LINE # 482
+0008 7B02              MOV     R3,#02H
+000A 7A64              MOV     R2,#064H
+000C 7937              MOV     R1,#037H
+000E 900000      R     MOV     DPTR,#compare
+0011 E0                MOVX    A,@DPTR
+0012 FC                MOV     R4,A
+0013 A3                INC     DPTR
+0014 E0                MOVX    A,@DPTR
+0015 FD                MOV     R5,A
+0016 120000      E     LCALL   _cywrite16_nodpx
+                                           ; SOURCE LINE # 484
+C51 COMPILER V9.03   QUADDEC_RIGHT_CNT16                                                   05/13/2012 22:25:57 PAGE 16  
+
+0019 22                RET     
+             ; FUNCTION _quaddec_right_Cnt16_WriteCompare (END)
+
+             ; FUNCTION quaddec_right_Cnt16_ReadCompare (BEGIN)
+                                           ; SOURCE LINE # 503
+                                           ; SOURCE LINE # 504
+                                           ; SOURCE LINE # 505
+0000 7B02              MOV     R3,#02H
+0002 7A64              MOV     R2,#064H
+0004 7937              MOV     R1,#037H
+0006 120000      E     LCALL   _cyread16_nodpx
+                                           ; SOURCE LINE # 506
+0009         ?C0017:
+0009 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_ReadCompare (END)
+
+             ; FUNCTION quaddec_right_Cnt16_ClearFIFO (BEGIN)
+                                           ; SOURCE LINE # 581
+                                           ; SOURCE LINE # 582
+0000         ?C0018:
+                                           ; SOURCE LINE # 584
+0000 120000      R     LCALL   quaddec_right_Cnt16_ReadStatusRegister
+0003 7E00              MOV     R6,#00H
+0005 EF                MOV     A,R7
+0006 30E605            JNB     ACC.6,?C0020
+                                           ; SOURCE LINE # 585
+                                           ; SOURCE LINE # 586
+0009 120000      R     LCALL   quaddec_right_Cnt16_ReadCapture
+                                           ; SOURCE LINE # 587
+000C 80F2              SJMP    ?C0018
+                                           ; SOURCE LINE # 589
+000E         ?C0020:
+000E 22                RET     
+             ; FUNCTION quaddec_right_Cnt16_ClearFIFO (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    325    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      1       9
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

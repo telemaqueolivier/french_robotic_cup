@@ -1,0 +1,2849 @@
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE UART_PC
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\uart_pc.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\Gene
+                    -rated_Source\PSoC3\uart_pc.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\uart_pc.lst) CD DB NOIP OT(2
+                    -,SIZE) INCDIR(Generated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\uart_pc.obj)
+
+line level    source
+
+   1          /*******************************************************************************
+   2          * File Name: uart_pc.c
+   3          * Version 2.0
+   4          *
+   5          * Description:
+   6          *  This file provides all API functionality of the UART component
+   7          *
+   8          * Note:
+   9          *
+  10          *******************************************************************************
+  11          * Copyright 2008-2010, Cypress Semiconductor Corporation.  All rights reserved.
+  12          * You may use this file only in accordance with the license, terms, conditions,
+  13          * disclaimers, and limitations in the end user license agreement accompanying
+  14          * the software package with which this file was provided.
+  15          ********************************************************************************/
+  16          
+  17          
+  18          #include "uart_pc.h"
+  19          #include "CyLib.h"
+  20          
+  21          
+  22          /***************************************
+  23          * Global data allocation
+  24          ***************************************/
+  25          
+  26          #if( uart_pc_TX_ENABLED && (uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH))
+                  volatile uint8 uart_pc_txBuffer[uart_pc_TXBUFFERSIZE];
+                  volatile uint8 uart_pc_txBufferRead = 0u;
+                  uint8 uart_pc_txBufferWrite = 0u;
+              #endif /* End uart_pc_TX_ENABLED */
+  31          #if( ( uart_pc_RX_ENABLED || uart_pc_HD_ENABLED ) && \
+  32               (uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH) )
+  33              volatile uint8 uart_pc_rxBuffer[uart_pc_RXBUFFERSIZE];
+  34              volatile uint8 uart_pc_rxBufferRead = 0u;
+  35              volatile uint8 uart_pc_rxBufferWrite = 0u;
+  36              volatile uint8 uart_pc_rxBufferLoopDetect = 0u;
+  37              volatile uint8 uart_pc_rxBufferOverflow = 0u;
+  38          #endif /* End uart_pc_RX_ENABLED */
+  39          
+  40          
+  41          /***************************************
+  42          * Local data allocation
+  43          ***************************************/
+  44          
+  45          uint8 uart_pc_initVar = 0u;
+  46          
+  47          
+  48          /*******************************************************************************
+  49          * Function Name: uart_pc_Start
+  50          ********************************************************************************
+  51          *
+  52          * Summary:
+  53          *  Initialize and Enable the UART component.
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 2   
+
+  54          *  Enable the clock input to enable operation.
+  55          *
+  56          * Parameters:
+  57          *  None.
+  58          *
+  59          * Return:
+  60          *  None.
+  61          *
+  62          * Global variables:
+  63          *  The uart_pc_intiVar variable is used to indicate initial 
+  64          *  configuration of this component. The variable is initialized to zero (0u) 
+  65          *  and set to one (1u) the first time UART_Start() is called. This allows for 
+  66          *  component initialization without re-initialization in all subsequent calls 
+  67          *  to the uart_pc_Start() routine. 
+  68          *
+  69          * Reentrant:
+  70          *  No.
+  71          *
+  72          *******************************************************************************/
+  73          void uart_pc_Start(void)
+  74          {
+  75   1          /* If not Initialized then initialize all required hardware and software */
+  76   1          if(uart_pc_initVar == 0u)
+  77   1          {
+  78   2              uart_pc_Init();
+  79   2              uart_pc_initVar = 1u;
+  80   2          }
+  81   1          uart_pc_Enable();
+  82   1      }
+  83          
+  84          
+  85          /*******************************************************************************
+  86          * Function Name: uart_pc_Init
+  87          ********************************************************************************
+  88          *
+  89          * Summary:
+  90          *  Initialize component's parameters to the parameters set by user in the
+  91          *  customizer of the component placed onto schematic. Usually called in
+  92          *  uart_pc_Start().
+  93          *
+  94          * Parameters:
+  95          *  None.
+  96          *
+  97          * Return:
+  98          *  None.
+  99          *
+ 100          *******************************************************************************/
+ 101          void uart_pc_Init(void) 
+ 102          {
+ 103   1          #if(uart_pc_RX_ENABLED || uart_pc_HD_ENABLED)
+ 104   1      
+ 105   1              #if(uart_pc_RX_INTERRUPT_ENABLED && (uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH))
+ 106   1                  /* Set the RX Interrupt. */
+ 107   1                  CyIntSetVector(uart_pc_RX_VECT_NUM,   uart_pc_RXISR);
+ 108   1                  CyIntSetPriority(uart_pc_RX_VECT_NUM, uart_pc_RX_PRIOR_NUM);
+ 109   1              #endif /* End uart_pc_RX_INTERRUPT_ENABLED */
+ 110   1      
+ 111   1              #if (uart_pc_RXHW_ADDRESS_ENABLED)
+                          uart_pc_SetRxAddressMode(uart_pc_RXAddressMode);
+                          uart_pc_SetRxAddress1(uart_pc_RXHWADDRESS1);
+                          uart_pc_SetRxAddress2(uart_pc_RXHWADDRESS2);
+                      #endif /* End uart_pc_RXHW_ADDRESS_ENABLED */
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 3   
+
+ 116   1      
+ 117   1              /* Configure the Initial RX interrupt mask */
+ 118   1              uart_pc_RXSTATUS_MASK_REG  = uart_pc_INIT_RX_INTERRUPTS_MASK;
+ 119   1          #endif /* End uart_pc_RX_ENABLED || uart_pc_HD_ENABLED*/
+ 120   1      
+ 121   1          #if(uart_pc_TX_ENABLED)
+ 122   1              #if(uart_pc_TX_INTERRUPT_ENABLED && (uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH))
+                          /* Set the TX Interrupt. */
+                          CyIntSetVector(uart_pc_TX_VECT_NUM,   uart_pc_TXISR);
+                          CyIntSetPriority(uart_pc_TX_VECT_NUM, uart_pc_TX_PRIOR_NUM);
+                      #endif /* End uart_pc_TX_INTERRUPT_ENABLED */
+ 127   1      
+ 128   1              /* Write Counter Value for TX Bit Clk Generator*/
+ 129   1              #if(uart_pc_TXCLKGEN_DP)
+ 130   1                  uart_pc_TXBITCLKGEN_CTR_REG = uart_pc_BIT_CENTER;
+ 131   1                  uart_pc_TXBITCLKTX_COMPLETE_REG = (uart_pc_NUMBER_OF_DATA_BITS + \
+ 132   1                                                          uart_pc_NUMBER_OF_START_BIT) * \
+ 133   1                                                          uart_pc_OVER_SAMPLE_COUNT;
+ 134   1              #else
+                          uart_pc_TXBITCTR_COUNTER_REG = (uart_pc_NUMBER_OF_DATA_BITS + \
+                                                                  uart_pc_NUMBER_OF_START_BIT) * \
+                                                                  uart_pc_OVER_SAMPLE_8;
+                      #endif /* End uart_pc_TXCLKGEN_DP */
+ 139   1      
+ 140   1              /* Configure the Initial TX interrupt mask */
+ 141   1              #if(uart_pc_TX_INTERRUPT_ENABLED && (uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH))
+                          uart_pc_TXSTATUS_MASK_REG = uart_pc_TX_STS_FIFO_EMPTY;
+                      #else
+ 144   1                  uart_pc_TXSTATUS_MASK_REG = uart_pc_INIT_TX_INTERRUPTS_MASK;
+ 145   1              #endif /*End uart_pc_TX_INTERRUPT_ENABLED*/
+ 146   1              
+ 147   1          #endif /* End uart_pc_TX_ENABLED */
+ 148   1      
+ 149   1          #if(uart_pc_PARITY_TYPE_SW)  /* Write Parity to Control Register */
+                      uart_pc_WriteControlRegister( \
+                          (uart_pc_ReadControlRegister() & ~uart_pc_CTRL_PARITY_TYPE_MASK) | \
+                          (uart_pc_PARITY_TYPE << uart_pc_CTRL_PARITY_TYPE0_SHIFT) );
+                  #endif /* End uart_pc_PARITY_TYPE_SW */
+ 154   1      }
+ 155          
+ 156          
+ 157          /*******************************************************************************
+ 158          * Function Name: uart_pc_Enable
+ 159          ********************************************************************************
+ 160          *
+ 161          * Summary:
+ 162          *  Enables the UART block operation
+ 163          *
+ 164          * Parameters:
+ 165          *  None.
+ 166          *
+ 167          * Return:
+ 168          *  None.
+ 169          *
+ 170          *******************************************************************************/
+ 171          void uart_pc_Enable(void) 
+ 172          {
+ 173   1          uint8 enableInterrupts;
+ 174   1          enableInterrupts = CyEnterCriticalSection();
+ 175   1          
+ 176   1          #if(uart_pc_RX_ENABLED || uart_pc_HD_ENABLED)
+ 177   1              /*RX Counter (Count7) Enable */
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 4   
+
+ 178   1              uart_pc_RXBITCTR_CONTROL_REG |= uart_pc_CNTR_ENABLE;
+ 179   1              /* Enable the RX Interrupt. */
+ 180   1              uart_pc_RXSTATUS_ACTL_REG  |= uart_pc_INT_ENABLE;
+ 181   1              #if(uart_pc_RX_INTERRUPT_ENABLED && (uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH))
+ 182   1                  CyIntEnable(uart_pc_RX_VECT_NUM);
+ 183   1              #endif /* End uart_pc_RX_INTERRUPT_ENABLED */
+ 184   1          #endif /* End uart_pc_RX_ENABLED || uart_pc_HD_ENABLED*/
+ 185   1      
+ 186   1          #if(uart_pc_TX_ENABLED)
+ 187   1              /*TX Counter (DP/Count7) Enable */
+ 188   1              #if(!uart_pc_TXCLKGEN_DP)
+                          uart_pc_TXBITCTR_CONTROL_REG |= uart_pc_CNTR_ENABLE;
+                      #endif /* End uart_pc_TXCLKGEN_DP */
+ 191   1              /* Enable the TX Interrupt. */
+ 192   1              uart_pc_TXSTATUS_ACTL_REG |= uart_pc_INT_ENABLE;
+ 193   1              #if(uart_pc_TX_INTERRUPT_ENABLED && (uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH))
+                          CyIntEnable(uart_pc_TX_VECT_NUM);
+                      #endif /* End uart_pc_TX_INTERRUPT_ENABLED*/
+ 196   1           #endif /* End uart_pc_TX_ENABLED */
+ 197   1      
+ 198   1          #if(uart_pc_INTERNAL_CLOCK_USED)
+ 199   1              /* Set the bit to enable the clock. */
+ 200   1              uart_pc_INTCLOCK_CLKEN_REG |= uart_pc_INTCLOCK_CLKEN_MASK;
+ 201   1          #endif /* End uart_pc_INTERNAL_CLOCK_USED */
+ 202   1          
+ 203   1          CyExitCriticalSection(enableInterrupts);
+ 204   1      }
+ 205          
+ 206          
+ 207          /*******************************************************************************
+ 208          * Function Name: uart_pc_Stop
+ 209          ********************************************************************************
+ 210          *
+ 211          * Summary:
+ 212          *  Disable the UART component
+ 213          *
+ 214          * Parameters:
+ 215          *  None.
+ 216          *
+ 217          * Return:
+ 218          *  None.
+ 219          *
+ 220          *******************************************************************************/
+ 221          void uart_pc_Stop(void) 
+ 222          {
+ 223   1          uint8 enableInterrupts;
+ 224   1          enableInterrupts = CyEnterCriticalSection();
+ 225   1      
+ 226   1          /*Write Bit Counter Disable */
+ 227   1          #if(uart_pc_RX_ENABLED || uart_pc_HD_ENABLED)
+ 228   1              uart_pc_RXBITCTR_CONTROL_REG &= ~uart_pc_CNTR_ENABLE;
+ 229   1          #endif /* End uart_pc_RX_ENABLED */
+ 230   1      
+ 231   1          #if(uart_pc_TX_ENABLED)
+ 232   1              #if(!uart_pc_TXCLKGEN_DP)
+                          uart_pc_TXBITCTR_CONTROL_REG &= ~uart_pc_CNTR_ENABLE;
+                      #endif /* End uart_pc_TXCLKGEN_DP */
+ 235   1          #endif /* uart_pc_TX_ENABLED */
+ 236   1      
+ 237   1          #if(uart_pc_INTERNAL_CLOCK_USED)
+ 238   1              /* Clear the bit to enable the clock. */
+ 239   1              uart_pc_INTCLOCK_CLKEN_REG &= ~uart_pc_INTCLOCK_CLKEN_MASK;
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 5   
+
+ 240   1          #endif /* End uart_pc_INTERNAL_CLOCK_USED */
+ 241   1          
+ 242   1          /*Disable internal interrupt component*/
+ 243   1          #if(uart_pc_RX_ENABLED || uart_pc_HD_ENABLED)
+ 244   1              uart_pc_RXSTATUS_ACTL_REG  &= ~uart_pc_INT_ENABLE;
+ 245   1              #if(uart_pc_RX_INTERRUPT_ENABLED && (uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH))
+ 246   1                  uart_pc_DisableRxInt();
+ 247   1              #endif /* End uart_pc_RX_INTERRUPT_ENABLED */
+ 248   1          #endif /* End uart_pc_RX_ENABLED */
+ 249   1          
+ 250   1          #if(uart_pc_TX_ENABLED)
+ 251   1              uart_pc_TXSTATUS_ACTL_REG &= ~uart_pc_INT_ENABLE;
+ 252   1              #if(uart_pc_TX_INTERRUPT_ENABLED && (uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH))
+                          uart_pc_DisableTxInt();
+                      #endif /* End uart_pc_TX_INTERRUPT_ENABLED */
+ 255   1          #endif /* End uart_pc_TX_ENABLED */
+ 256   1      
+ 257   1          CyExitCriticalSection(enableInterrupts);
+ 258   1      }
+ 259          
+ 260          
+ 261          /*******************************************************************************
+ 262          * Function Name: uart_pc_ReadControlRegister
+ 263          ********************************************************************************
+ 264          *
+ 265          * Summary:
+ 266          *  Read the current state of the control register
+ 267          *
+ 268          * Parameters:
+ 269          *  None.
+ 270          *
+ 271          * Return:
+ 272          *  Current state of the control register.
+ 273          *
+ 274          *******************************************************************************/
+ 275          uint8 uart_pc_ReadControlRegister(void) 
+ 276          {
+ 277   1          #if( uart_pc_CONTROL_REG_REMOVED )
+ 278   1              return(0u);
+ 279   1          #else
+                      return(uart_pc_CONTROL_REG);
+                  #endif /* End uart_pc_CONTROL_REG_REMOVED */
+ 282   1      }
+ 283          
+ 284          
+ 285          /*******************************************************************************
+ 286          * Function Name: uart_pc_WriteControlRegister
+ 287          ********************************************************************************
+ 288          *
+ 289          * Summary:
+ 290          *  Writes an 8-bit value into the control register
+ 291          *
+ 292          * Parameters:
+ 293          *  control:  control register value
+ 294          *
+ 295          * Return:
+ 296          *  None.
+ 297          *
+ 298          *******************************************************************************/
+ 299          void  uart_pc_WriteControlRegister(uint8 control) 
+ 300          {
+ 301   1          #if( uart_pc_CONTROL_REG_REMOVED )
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 6   
+
+ 302   1              control = control;      /* Reassigning to release compiler warning */ 
+ 303   1          #else
+                     uart_pc_CONTROL_REG = control;
+                  #endif /* End uart_pc_CONTROL_REG_REMOVED */
+ 306   1      }
+ 307          
+ 308          
+ 309          #if(uart_pc_RX_ENABLED || uart_pc_HD_ENABLED)
+ 310          
+ 311              #if(uart_pc_RX_INTERRUPT_ENABLED)
+ 312          
+ 313                  /*******************************************************************************
+ 314                  * Function Name: uart_pc_EnableRxInt
+ 315                  ********************************************************************************
+ 316                  *
+ 317                  * Summary:
+ 318                  *  Enable RX interrupt generation
+ 319                  *
+ 320                  * Parameters:
+ 321                  *  None.
+ 322                  *
+ 323                  * Return:
+ 324                  *  None.
+ 325                  *
+ 326                  * Theory:
+ 327                  *  Enable the interrupt output -or- the interrupt component itself
+ 328                  *
+ 329                  *******************************************************************************/
+ 330                  void uart_pc_EnableRxInt(void) 
+ 331                  {
+ 332   1                  CyIntEnable(uart_pc_RX_VECT_NUM);
+ 333   1              }
+ 334          
+ 335          
+ 336                  /*******************************************************************************
+ 337                  * Function Name: uart_pc_DisableRxInt
+ 338                  ********************************************************************************
+ 339                  *
+ 340                  * Summary:
+ 341                  *  Disable RX interrupt generation
+ 342                  *
+ 343                  * Parameters:
+ 344                  *  None.
+ 345                  *
+ 346                  * Return:
+ 347                  *  None.
+ 348                  *
+ 349                  * Theory:
+ 350                  *  Disable the interrupt output -or- the interrupt component itself
+ 351                  *
+ 352                  *******************************************************************************/
+ 353                  void uart_pc_DisableRxInt(void) 
+ 354                  {
+ 355   1                  CyIntDisable(uart_pc_RX_VECT_NUM);
+ 356   1              }
+ 357          
+ 358              #endif /* uart_pc_RX_INTERRUPT_ENABLED */
+ 359          
+ 360          
+ 361              /*******************************************************************************
+ 362              * Function Name: uart_pc_SetRxInterruptMode
+ 363              ********************************************************************************
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 7   
+
+ 364              *
+ 365              * Summary:
+ 366              *  Configure which status bits trigger an interrupt event
+ 367              *
+ 368              * Parameters:
+ 369              *  IntSrc:  An or'd combination of the desired status bit masks (defined in
+ 370              *           the header file)
+ 371              *
+ 372              * Return:
+ 373              *  None.
+ 374              *
+ 375              * Theory:
+ 376              *  Enables the output of specific status bits to the interrupt controller
+ 377              *
+ 378              *******************************************************************************/
+ 379              void uart_pc_SetRxInterruptMode(uint8 intSrc) 
+ 380              {
+ 381   1              uart_pc_RXSTATUS_MASK_REG  = intSrc;
+ 382   1          }
+ 383          
+ 384          
+ 385              /*******************************************************************************
+ 386              * Function Name: uart_pc_ReadRxData
+ 387              ********************************************************************************
+ 388              *
+ 389              * Summary:
+ 390              *  Returns data in RX Data register without checking status register to 
+ 391              *  determine if data is valid
+ 392              *
+ 393              * Parameters:
+ 394              *  None.
+ 395              *
+ 396              * Return:
+ 397              *  Received data from RX register
+ 398              *
+ 399              * Global Variables:
+ 400              *  uart_pc_rxBuffer - RAM buffer pointer for save received data.
+ 401              *  uart_pc_rxBufferWrite - cyclic index for write to rxBuffer, 
+ 402              *     checked to identify new data. 
+ 403              *  uart_pc_rxBufferRead - cyclic index for read from rxBuffer, 
+ 404              *     incremented after each byte has been read from buffer.
+ 405              *  uart_pc_rxBufferLoopDetect - creared if loop condition was detected
+ 406              *     in RX ISR. 
+ 407              *
+ 408              * Reentrant:
+ 409              *  No.
+ 410              *
+ 411              *******************************************************************************/
+ 412              uint8 uart_pc_ReadRxData(void)
+ 413              {
+ 414   1              uint8 rxData;
+ 415   1      
+ 416   1              #if(uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH)
+ 417   1      
+ 418   1                  /* Disable Rx interrupt. */
+ 419   1                  /* Protect variables that could change on interrupt. */
+ 420   1                  #if(uart_pc_RX_INTERRUPT_ENABLED)
+ 421   1                      uart_pc_DisableRxInt();
+ 422   1                  #endif /* End uart_pc_RX_INTERRUPT_ENABLED */
+ 423   1      
+ 424   1                  if( (uart_pc_rxBufferRead != uart_pc_rxBufferWrite) || \
+ 425   1                      (uart_pc_rxBufferLoopDetect > 0u) )
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 8   
+
+ 426   1                  {
+ 427   2                      if(uart_pc_rxBufferLoopDetect > 0u ) 
+ 428   2                      {
+ 429   3                          uart_pc_rxBufferLoopDetect = 0u;
+ 430   3                      }
+ 431   2      
+ 432   2                      if(uart_pc_rxBufferRead >= uart_pc_RXBUFFERSIZE)
+ 433   2                      {
+ 434   3                          uart_pc_rxBufferRead = 0u;
+ 435   3                      }
+ 436   2      
+ 437   2                      rxData = uart_pc_rxBuffer[uart_pc_rxBufferRead];
+ 438   2      
+ 439   2                      uart_pc_rxBufferRead++;
+ 440   2                  }
+ 441   1                  else
+ 442   1                  {   /* Needs to check status for RX_STS_FIFO_NOTEMPTY bit*/
+ 443   2                      rxData = uart_pc_RXDATA_REG;
+ 444   2                  }
+ 445   1      
+ 446   1                  /* Enable Rx interrupt. */
+ 447   1                  #if(uart_pc_RX_INTERRUPT_ENABLED)
+ 448   1                      uart_pc_EnableRxInt();
+ 449   1                  #endif /* End uart_pc_RX_INTERRUPT_ENABLED */
+ 450   1      
+ 451   1              #else /* uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+              
+                          /* Needs to check status for RX_STS_FIFO_NOTEMPTY bit*/
+                          rxData = uart_pc_RXDATA_REG;
+              
+                      #endif /* uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+ 457   1      
+ 458   1              return(rxData);
+ 459   1          }
+ 460          
+ 461          
+ 462              /*******************************************************************************
+ 463              * Function Name: uart_pc_ReadRxStatus
+ 464              ********************************************************************************
+ 465              *
+ 466              * Summary:
+ 467              *  Read the current state of the status register
+ 468              *  And detect software buffer overflow.
+ 469              *
+ 470              * Parameters:
+ 471              *  None.
+ 472              *
+ 473              * Return:
+ 474              *  Current state of the status register.
+ 475              *
+ 476              * Global Variables:
+ 477              *  uart_pc_rxBufferOverflow - used to indicate overload condition. 
+ 478              *   It set to one in RX interrupt when there isn?t free space in 
+ 479              *   uart_pc_rxBufferRead to write new data. This condition returned 
+ 480              *   and cleared to zero by this API as an 
+ 481              *   uart_pc_RX_STS_SOFT_BUFF_OVER bit along with RX Status register 
+ 482              *   bits.
+ 483              *
+ 484              *******************************************************************************/
+ 485              uint8 uart_pc_ReadRxStatus(void) 
+ 486              {
+ 487   1              uint8 status;
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 9   
+
+ 488   1      
+ 489   1              status = uart_pc_RXSTATUS_REG;
+ 490   1              status &= uart_pc_RX_HW_MASK;
+ 491   1      
+ 492   1              #if(uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH)
+ 493   1                  if( uart_pc_rxBufferOverflow )
+ 494   1                  {
+ 495   2                      status |= uart_pc_RX_STS_SOFT_BUFF_OVER;
+ 496   2                      uart_pc_rxBufferOverflow = 0u;
+ 497   2                  }
+ 498   1              #endif /* uart_pc_RXBUFFERSIZE */
+ 499   1      
+ 500   1              return(status);
+ 501   1          }
+ 502          
+ 503          
+ 504              /*******************************************************************************
+ 505              * Function Name: uart_pc_GetChar
+ 506              ********************************************************************************
+ 507              *
+ 508              * Summary:
+ 509              *  Reads UART RX buffer immediately, if data is not available or an error 
+ 510              *  condition exists, zero is returned; otherwise, character is read and 
+ 511              *  returned.
+ 512              *
+ 513              * Parameters:
+ 514              *  None.
+ 515              *
+ 516              * Return:
+ 517              *  Character read from UART RX buffer. ASCII characters from 1 to 255 are valid.
+ 518              *  A returned zero signifies an error condition or no data available.
+ 519              *
+ 520              * Global Variables:
+ 521              *  uart_pc_rxBuffer - RAM buffer pointer for save received data.
+ 522              *  uart_pc_rxBufferWrite - cyclic index for write to rxBuffer, 
+ 523              *     checked to identify new data. 
+ 524              *  uart_pc_rxBufferRead - cyclic index for read from rxBuffer, 
+ 525              *     incremented after each byte has been read from buffer.
+ 526              *  uart_pc_rxBufferLoopDetect - creared if loop condition was detected
+ 527              *     in RX ISR. 
+ 528              *
+ 529              * Reentrant:
+ 530              *  No.
+ 531              *
+ 532              *******************************************************************************/
+ 533              uint8 uart_pc_GetChar(void)
+ 534              {
+ 535   1              uint8 rxData = 0u;
+ 536   1              uint8 rxStatus;
+ 537   1      
+ 538   1              #if(uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH)
+ 539   1      
+ 540   1                  /* Disable Rx interrupt. */
+ 541   1                  /* Protect variables that could change on interrupt. */
+ 542   1                  #if(uart_pc_RX_INTERRUPT_ENABLED)
+ 543   1                      uart_pc_DisableRxInt();
+ 544   1                  #endif /* uart_pc_RX_INTERRUPT_ENABLED */
+ 545   1      
+ 546   1                  if( (uart_pc_rxBufferRead != uart_pc_rxBufferWrite) || \
+ 547   1                      (uart_pc_rxBufferLoopDetect > 0u) )
+ 548   1                  {
+ 549   2                      if(uart_pc_rxBufferLoopDetect > 0u ) 
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 10  
+
+ 550   2                      {
+ 551   3                          uart_pc_rxBufferLoopDetect = 0u;
+ 552   3                      }
+ 553   2      
+ 554   2                      if(uart_pc_rxBufferRead >= uart_pc_RXBUFFERSIZE)
+ 555   2                      {
+ 556   3                          uart_pc_rxBufferRead = 0u;
+ 557   3                      }
+ 558   2      
+ 559   2                      rxData = uart_pc_rxBuffer[uart_pc_rxBufferRead];
+ 560   2      
+ 561   2                      uart_pc_rxBufferRead++;
+ 562   2                  }
+ 563   1                  else
+ 564   1                  {   rxStatus =uart_pc_RXSTATUS_REG;
+ 565   2                      if(rxStatus & uart_pc_RX_STS_FIFO_NOTEMPTY)
+ 566   2                      {   /* Read received data from FIFO*/
+ 567   3                          rxData = uart_pc_RXDATA_REG;
+ 568   3                          /*Check status on error*/
+ 569   3                          if(rxStatus & (uart_pc_RX_STS_BREAK | uart_pc_RX_STS_PAR_ERROR | \
+ 570   3                                         uart_pc_RX_STS_STOP_ERROR | uart_pc_RX_STS_OVERRUN))
+ 571   3                          {
+ 572   4                              rxData = 0u;
+ 573   4                          }    
+ 574   3                      }
+ 575   2                  }
+ 576   1      
+ 577   1                  /* Enable Rx interrupt. */
+ 578   1                  #if(uart_pc_RX_INTERRUPT_ENABLED)
+ 579   1                      uart_pc_EnableRxInt();
+ 580   1                  #endif /* uart_pc_RX_INTERRUPT_ENABLED */
+ 581   1      
+ 582   1              #else /* uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+              
+                          rxStatus =uart_pc_RXSTATUS_REG;
+                          if(rxStatus & uart_pc_RX_STS_FIFO_NOTEMPTY)
+                          {   /* Read received data from FIFO*/
+                              rxData = uart_pc_RXDATA_REG;
+                              /*Check status on error*/
+                              if(rxStatus & (uart_pc_RX_STS_BREAK | uart_pc_RX_STS_PAR_ERROR | \
+                                             uart_pc_RX_STS_STOP_ERROR | uart_pc_RX_STS_OVERRUN))
+                              {
+                                  rxData = 0u;
+                              }
+                          }
+                      #endif /* uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+ 596   1      
+ 597   1              return(rxData);
+ 598   1          }
+ 599          
+ 600          
+ 601              /*******************************************************************************
+ 602              * Function Name: uart_pc_GetByte
+ 603              ********************************************************************************
+ 604              *
+ 605              * Summary:
+ 606              *  Grab the next available byte of data from the recieve FIFO
+ 607              *
+ 608              * Parameters:
+ 609              *  None.
+ 610              *
+ 611              * Return:
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 11  
+
+ 612              *  MSB contains Status Register and LSB contains UART RX data
+ 613              *
+ 614              * Reentrant:
+ 615              *  No.
+ 616              *
+ 617              *******************************************************************************/
+ 618              uint16 uart_pc_GetByte(void)
+ 619              {
+ 620   1              return ( ((uint16)uart_pc_ReadRxStatus() << 8u) | uart_pc_ReadRxData() );
+ 621   1          }
+ 622          
+ 623          
+ 624              /*******************************************************************************
+ 625              * Function Name: uart_pc_GetRxBufferSize
+ 626              ********************************************************************************
+ 627              *
+ 628              * Summary:
+ 629              *  Determine the amount of bytes left in the RX buffer and return the count in
+ 630              *  bytes
+ 631              *
+ 632              * Parameters:
+ 633              *  None.
+ 634              *
+ 635              * Return:
+ 636              *  uint8: Integer count of the number of bytes left 
+ 637              *  in the RX buffer
+ 638              *
+ 639              * Global Variables:
+ 640              *  uart_pc_rxBufferWrite - used to calculate left bytes. 
+ 641              *  uart_pc_rxBufferRead - used to calculate left bytes.
+ 642              *  uart_pc_rxBufferLoopDetect - checked to decide left bytes amount. 
+ 643              *
+ 644              * Reentrant:
+ 645              *  No.
+ 646              *
+ 647              * Theory:
+ 648              *  Allows the user to find out how full the RX Buffer is.
+ 649              *
+ 650              *******************************************************************************/
+ 651              uint8 uart_pc_GetRxBufferSize(void)
+ 652              {
+ 653   1              uint8 size;
+ 654   1      
+ 655   1              #if(uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH)
+ 656   1      
+ 657   1                  /* Disable Rx interrupt. */
+ 658   1                  /* Protect variables that could change on interrupt. */
+ 659   1                  #if(uart_pc_RX_INTERRUPT_ENABLED)
+ 660   1                      uart_pc_DisableRxInt();
+ 661   1                  #endif /* uart_pc_RX_INTERRUPT_ENABLED */
+ 662   1      
+ 663   1                  if(uart_pc_rxBufferRead == uart_pc_rxBufferWrite)
+ 664   1                  {
+ 665   2                      if(uart_pc_rxBufferLoopDetect > 0u)
+ 666   2                      {
+ 667   3                          size = uart_pc_RXBUFFERSIZE;
+ 668   3                      }
+ 669   2                      else
+ 670   2                      {
+ 671   3                          size = 0u;
+ 672   3                      }
+ 673   2                  }
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 12  
+
+ 674   1                  else if(uart_pc_rxBufferRead < uart_pc_rxBufferWrite)
+ 675   1                  {
+ 676   2                      size = (uart_pc_rxBufferWrite - uart_pc_rxBufferRead);
+ 677   2                  }
+ 678   1                  else
+ 679   1                  {
+ 680   2                      size = (uart_pc_RXBUFFERSIZE - uart_pc_rxBufferRead) + uart_pc_rxBufferWrite;
+ 681   2                  }
+ 682   1      
+ 683   1                  /* Enable Rx interrupt. */
+ 684   1                  #if(uart_pc_RX_INTERRUPT_ENABLED)
+ 685   1                      uart_pc_EnableRxInt();
+ 686   1                  #endif /* End uart_pc_RX_INTERRUPT_ENABLED */
+ 687   1      
+ 688   1              #else /* uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+              
+                          /* We can only know if there is data in the fifo. */
+                          size = (uart_pc_RXSTATUS_REG & uart_pc_RX_STS_FIFO_NOTEMPTY) ? 1u : 0u;
+              
+                      #endif /* End uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+ 694   1      
+ 695   1              return(size);
+ 696   1          }
+ 697          
+ 698          
+ 699              /*******************************************************************************
+ 700              * Function Name: uart_pc_ClearRxBuffer
+ 701              ********************************************************************************
+ 702              *
+ 703              * Summary:
+ 704              *  Clear the RX RAM buffer by setting the read and write pointers both to zero.
+ 705              *
+ 706              * Parameters:
+ 707              *  None.
+ 708              *
+ 709              * Return:
+ 710              *  None.
+ 711              *
+ 712              * Global Variables:
+ 713              *  uart_pc_rxBufferWrite - cleared to zero. 
+ 714              *  uart_pc_rxBufferRead - cleared to zero.
+ 715              *  uart_pc_rxBufferLoopDetect - cleared to zero. 
+ 716              *  uart_pc_rxBufferOverflow - cleared to zero. 
+ 717              *
+ 718              * Reentrant:
+ 719              *  No.
+ 720              *
+ 721              * Theory:
+ 722              *  Setting the pointers to zero makes the system believe there is no data to 
+ 723              *  read and writing will resume at address 0 overwriting any data that may 
+ 724              *  have remained in the RAM.
+ 725              *
+ 726              * Side Effects:
+ 727              *  Any received data not read from the RAM buffer will be lost when overwritten.
+ 728              *******************************************************************************/
+ 729              void uart_pc_ClearRxBuffer(void)
+ 730              {
+ 731   1              #if(uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH)
+ 732   1                  /* Disable Rx interrupt. */
+ 733   1                  /* Protect variables that could change on interrupt. */
+ 734   1                  #if(uart_pc_RX_INTERRUPT_ENABLED)
+ 735   1                      uart_pc_DisableRxInt();
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 13  
+
+ 736   1                  #endif /* End uart_pc_RX_INTERRUPT_ENABLED */
+ 737   1      
+ 738   1                  uart_pc_rxBufferRead = 0u;
+ 739   1                  uart_pc_rxBufferWrite = 0u;
+ 740   1                  uart_pc_rxBufferLoopDetect = 0u;
+ 741   1                  uart_pc_rxBufferOverflow = 0u;
+ 742   1      
+ 743   1                  /* Enable Rx interrupt. */
+ 744   1                  #if(uart_pc_RX_INTERRUPT_ENABLED)
+ 745   1                      uart_pc_EnableRxInt();
+ 746   1                  #endif /* End uart_pc_RX_INTERRUPT_ENABLED */
+ 747   1              #endif /* End uart_pc_RXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+ 748   1          }
+ 749          
+ 750          
+ 751              /*******************************************************************************
+ 752              * Function Name: uart_pc_SetRxAddressMode
+ 753              ********************************************************************************
+ 754              *
+ 755              * Summary:
+ 756              *  Set the receive addressing mode
+ 757              *
+ 758              * Parameters:
+ 759              *  addressMode: Use one of the Enumerated Types listed below
+ 760              *              #define uart_pc__B_UART__AM_SW_BYTE_BYTE 1
+ 761          #define uart_pc__B_UART__AM_SW_DETECT_TO_BUFFER 2
+ 762          #define uart_pc__B_UART__AM_HW_BYTE_BY_BYTE 3
+ 763          #define uart_pc__B_UART__AM_HW_DETECT_TO_BUFFER 4
+ 764          #define uart_pc__B_UART__AM_NONE 0
+ 765          
+ 766              *
+ 767              * Return:
+ 768              *  None.
+ 769              *
+ 770              *******************************************************************************/
+ 771              void uart_pc_SetRxAddressMode(uint8 addressMode)  
+ 772              {
+ 773   1              #if(uart_pc_RXHW_ADDRESS_ENABLED)
+                          #if(uart_pc_CONTROL_REG_REMOVED)
+                              addressMode = addressMode;
+                          #else /* uart_pc_CONTROL_REG_REMOVED */
+                              uint8 tmpCtrl = 0u;
+                              tmpCtrl = uart_pc_CONTROL_REG & ~uart_pc_CTRL_RXADDR_MODE_MASK;
+                              tmpCtrl |= ((addressMode << uart_pc_CTRL_RXADDR_MODE0_SHIFT) & \
+                                         uart_pc_CTRL_RXADDR_MODE_MASK);
+                              uart_pc_CONTROL_REG = tmpCtrl;
+                          #endif /* End uart_pc_CONTROL_REG_REMOVED */
+                      #else /* uart_pc_RXHW_ADDRESS_ENABLED */
+ 784   1                  addressMode = addressMode;
+ 785   1              #endif /* End uart_pc_RXHW_ADDRESS_ENABLED */
+ 786   1          }
+ 787          
+ 788          
+ 789              /*******************************************************************************
+ 790              * Function Name: uart_pc_SetRxAddress1
+ 791              ********************************************************************************
+ 792              *
+ 793              * Summary:
+ 794              *  Set the first hardware address compare value
+ 795              *
+ 796              * Parameters:
+ 797              *  address
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 14  
+
+ 798              *
+ 799              * Return:
+ 800              *  None.
+ 801              *
+ 802              *******************************************************************************/
+ 803              void uart_pc_SetRxAddress1(uint8 address) 
+ 804          
+ 805              {
+ 806   1              uart_pc_RXADDRESS1_REG = address;
+ 807   1          }
+ 808          
+ 809          
+ 810              /*******************************************************************************
+ 811              * Function Name: uart_pc_SetRxAddress2
+ 812              ********************************************************************************
+ 813              *
+ 814              * Summary:
+ 815              *  Set the second hardware address compare value
+ 816              *
+ 817              * Parameters:
+ 818              *  address
+ 819              *
+ 820              * Return:
+ 821              *  None.
+ 822              *
+ 823              *******************************************************************************/
+ 824              void uart_pc_SetRxAddress2(uint8 address) 
+ 825              {
+ 826   1              uart_pc_RXADDRESS2_REG = address;
+ 827   1          }
+ 828          
+ 829          #endif  /* uart_pc_RX_ENABLED || uart_pc_HD_ENABLED*/
+ 830          
+ 831          
+ 832          #if( (uart_pc_TX_ENABLED) || (uart_pc_HD_ENABLED) )
+ 833          
+ 834              #if(uart_pc_TX_INTERRUPT_ENABLED)
+              
+                      /*******************************************************************************
+                      * Function Name: uart_pc_EnableTxInt
+                      ********************************************************************************
+                      *
+                      * Summary:
+                      *  Enable TX interrupt generation
+                      *
+                      * Parameters:
+                      *  None.
+                      *
+                      * Return:
+                      *  None.
+                      *
+                      * Theory:
+                      *  Enable the interrupt output -or- the interrupt component itself
+                      *
+                      *******************************************************************************/
+                      void uart_pc_EnableTxInt(void) 
+                      {
+                          CyIntEnable(uart_pc_TX_VECT_NUM);
+                      }
+              
+              
+                      /*******************************************************************************
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 15  
+
+                      * Function Name: uart_pc_DisableTxInt
+                      ********************************************************************************
+                      *
+                      * Summary:
+                      *  Disable TX interrupt generation
+                      *
+                      * Parameters:
+                      *  None.
+                      *
+                      * Return:
+                      *  None.
+                      *
+                      * Theory:
+                      *  Disable the interrupt output -or- the interrupt component itself
+                      *
+                      *******************************************************************************/
+                      void uart_pc_DisableTxInt(void) 
+                      {
+                          CyIntDisable(uart_pc_TX_VECT_NUM);
+                      }
+              
+                  #endif /* uart_pc_TX_INTERRUPT_ENABLED */
+ 882          
+ 883          
+ 884              /*******************************************************************************
+ 885              * Function Name: uart_pc_SetTxInterruptMode
+ 886              ********************************************************************************
+ 887              *
+ 888              * Summary:
+ 889              *  Configure which status bits trigger an interrupt event
+ 890              *
+ 891              * Parameters:
+ 892              *  intSrc: An or'd combination of the desired status bit masks (defined in
+ 893              *          the header file)
+ 894              *
+ 895              * Return:
+ 896              *  None.
+ 897              *
+ 898              * Theory:
+ 899              *  Enables the output of specific status bits to the interrupt controller
+ 900              *
+ 901              *******************************************************************************/
+ 902              void uart_pc_SetTxInterruptMode(uint8 intSrc) 
+ 903              {
+ 904   1              uart_pc_TXSTATUS_MASK_REG = intSrc;
+ 905   1          }
+ 906          
+ 907          
+ 908              /*******************************************************************************
+ 909              * Function Name: uart_pc_WriteTxData
+ 910              ********************************************************************************
+ 911              *
+ 912              * Summary:
+ 913              *  Write a byte of data to the Transmit FIFO or TX buffer to be sent when the 
+ 914              *  bus is available. WriteTxData sends a byte without checking for buffer room 
+ 915              *  or status. It is up to the user to separately check status.    
+ 916              *
+ 917              * Parameters:
+ 918              *  TXDataByte: byte of data to place in the transmit FIFO
+ 919              *
+ 920              * Return:
+ 921              * void
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 16  
+
+ 922              *
+ 923              * Global Variables:
+ 924              *  uart_pc_txBuffer - RAM buffer pointer for save data for transmission
+ 925              *  uart_pc_txBufferWrite - cyclic index for write to txBuffer, 
+ 926              *    incremented after each byte saved to buffer.
+ 927              *  uart_pc_txBufferRead - cyclic index for read from txBuffer, 
+ 928              *    checked to identify the condition to write to FIFO directly or to TX buffer
+ 929              *  uart_pc_initVar - checked to identify that the component has been  
+ 930              *    initialized.
+ 931              *
+ 932              * Reentrant:
+ 933              *  No.
+ 934              *
+ 935              *******************************************************************************/
+ 936              void uart_pc_WriteTxData(uint8 txDataByte)
+ 937              {
+ 938   1              /* If not Initialized then skip this function*/
+ 939   1              if(uart_pc_initVar != 0u)
+ 940   1              {
+ 941   2                  #if(uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH)
+              
+                              /* Disable Tx interrupt. */
+                              /* Protect variables that could change on interrupt. */
+                              #if(uart_pc_TX_INTERRUPT_ENABLED)
+                                  uart_pc_DisableTxInt();
+                              #endif /* End uart_pc_TX_INTERRUPT_ENABLED */
+              
+                              if( (uart_pc_txBufferRead == uart_pc_txBufferWrite) && \
+                                 !(uart_pc_TXSTATUS_REG & uart_pc_TX_STS_FIFO_FULL) )
+                              {
+                                  /* Add directly to the FIFO. */
+                                  uart_pc_TXDATA_REG = txDataByte;
+                              }
+                              else
+                              {
+                                  if(uart_pc_txBufferWrite >= uart_pc_TXBUFFERSIZE)
+                                  {
+                                      uart_pc_txBufferWrite = 0;
+                                  }
+              
+                                  uart_pc_txBuffer[uart_pc_txBufferWrite] = txDataByte;
+              
+                                  /* Add to the software buffer. */
+                                  uart_pc_txBufferWrite++;
+              
+                              }
+              
+                              /* Enable Tx interrupt. */
+                              #if(uart_pc_TX_INTERRUPT_ENABLED)
+                                  uart_pc_EnableTxInt();
+                              #endif /* End uart_pc_TX_INTERRUPT_ENABLED */
+              
+                          #else /* uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+ 975   2      
+ 976   2                      /* Add directly to the FIFO. */
+ 977   2                      uart_pc_TXDATA_REG = txDataByte;
+ 978   2      
+ 979   2                  #endif /* End uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+ 980   2              }
+ 981   1          }
+ 982          
+ 983          
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 17  
+
+ 984              /*******************************************************************************
+ 985              * Function Name: uart_pc_ReadTxStatus
+ 986              ********************************************************************************
+ 987              *
+ 988              * Summary:
+ 989              *  Read the status register for the component
+ 990              *
+ 991              * Parameters:
+ 992              *  None.
+ 993              *
+ 994              * Return:
+ 995              *  Contents of the status register
+ 996              *
+ 997              * Theory:
+ 998              *  This function reads the status register which is clear on read. It is up to 
+ 999              *  the user to handle all bits in this return value accordingly, even if the bit 
+1000              *  was not enabled as an interrupt source the event happened and must be handled
+1001              *  accordingly.    
+1002              *
+1003              *******************************************************************************/
+1004              uint8 uart_pc_ReadTxStatus(void) 
+1005              {
+1006   1              return(uart_pc_TXSTATUS_REG);
+1007   1          }
+1008          
+1009          
+1010              /*******************************************************************************
+1011              * Function Name: uart_pc_PutChar
+1012              ********************************************************************************
+1013              *
+1014              * Summary:
+1015              *  Wait to send byte until TX register or buffer has room.
+1016              *
+1017              * Parameters:
+1018              *  txDataByte: The 8-bit data value to send across the UART.
+1019              *
+1020              * Return:
+1021              *  None.
+1022              *
+1023              * Global Variables:
+1024              *  uart_pc_txBuffer - RAM buffer pointer for save data for transmission
+1025              *  uart_pc_txBufferWrite - cyclic index for write to txBuffer, 
+1026              *     checked to identify free space in txBuffer and incremented after each byte 
+1027              *     saved to buffer.
+1028              *  uart_pc_txBufferRead - cyclic index for read from txBuffer, 
+1029              *     checked to identify free space in txBuffer.
+1030              *  uart_pc_initVar - checked to identify that the component has been  
+1031              *     initialized.
+1032              *
+1033              * Reentrant:
+1034              *  No.
+1035              *
+1036              * Theory:
+1037              *  Allows the user to transmit any byte of data in a single transfer
+1038              *
+1039              *******************************************************************************/
+1040              void uart_pc_PutChar(uint8 txDataByte)
+1041              {
+1042   1                  #if(uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH)
+              
+                              /* Block if buffer is full, so we dont overwrite. */
+                              while( uart_pc_txBufferWrite == (uart_pc_txBufferRead - 1u) || \
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 18  
+
+                                  (uint8)(uart_pc_txBufferWrite - uart_pc_txBufferRead) ==
+                                  (uint8)(uart_pc_TXBUFFERSIZE - 1u) )
+                              {
+                                  /* Software buffer is full. */
+                              }
+                              /* Disable Tx interrupt. */
+                              /* Protect variables that could change on interrupt. */
+                              #if(uart_pc_TX_INTERRUPT_ENABLED)
+                                  uart_pc_DisableTxInt();
+                              #endif /* End uart_pc_TX_INTERRUPT_ENABLED */
+              
+                              if( (uart_pc_txBufferRead == uart_pc_txBufferWrite) && \
+                                 !(uart_pc_TXSTATUS_REG & uart_pc_TX_STS_FIFO_FULL) )
+                              {
+                                  /* Add directly to the FIFO. */
+                                  uart_pc_TXDATA_REG = txDataByte;
+                              }
+                              else
+                              {
+                                  if(uart_pc_txBufferWrite >= uart_pc_TXBUFFERSIZE)
+                                  {
+                                      uart_pc_txBufferWrite = 0;
+                                  }
+              
+                                  uart_pc_txBuffer[uart_pc_txBufferWrite] = txDataByte;
+              
+                                  /* Add to the software buffer. */
+                                  uart_pc_txBufferWrite++;
+              
+                              }
+              
+                              /* Enable Rx interrupt. */
+                              #if(uart_pc_TX_INTERRUPT_ENABLED)
+                                  uart_pc_EnableTxInt();
+                              #endif /* End uart_pc_TX_INTERRUPT_ENABLED */
+              
+                          #else /* uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+1083   1      
+1084   1                      /* Block if there isnt room. */
+1085   1                      while(uart_pc_TXSTATUS_REG & uart_pc_TX_STS_FIFO_FULL);
+1086   1      
+1087   1                      /* Add directly to the FIFO. */
+1088   1                      uart_pc_TXDATA_REG = txDataByte;
+1089   1      
+1090   1                  #endif /* End uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+1091   1          }
+1092          
+1093          
+1094              /*******************************************************************************
+1095              * Function Name: uart_pc_PutString
+1096              ********************************************************************************
+1097              *
+1098              * Summary:
+1099              *  Write a Sequence of bytes on the Transmit line. Data comes from RAM or ROM.
+1100              *
+1101              * Parameters:
+1102              *  string: uint8 pointer to character string of Data to Send.
+1103              *
+1104              * Return:
+1105              *  None.
+1106              *
+1107              * Global Variables:
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 19  
+
+1108              *  uart_pc_initVar - checked to identify that the component has been  
+1109              *     initialized.
+1110              *
+1111              * Reentrant:
+1112              *  No.
+1113              *
+1114              * Theory:
+1115              *  This function will block if there is not enough memory to place the whole 
+1116              *  string, it will block until the entire string has been written to the 
+1117              *  transmit buffer.
+1118              *
+1119              *******************************************************************************/
+1120              void uart_pc_PutString(uint8* string)
+1121              {
+1122   1              /* If not Initialized then skip this function*/
+1123   1              if(uart_pc_initVar != 0u)
+1124   1              {
+1125   2                  /* This is a blocking function, it will not exit until all data is sent*/
+1126   2                  while(*string != 0u)
+1127   2                  {
+1128   3                      uart_pc_PutChar(*string++);
+1129   3                  }
+1130   2              }
+1131   1          }
+1132          
+1133          
+1134              /*******************************************************************************
+1135              * Function Name: uart_pc_PutArray
+1136              ********************************************************************************
+1137              *
+1138              * Summary:
+1139              *  Write a Sequence of bytes on the Transmit line. Data comes from RAM or ROM.
+1140              *
+1141              * Parameters:
+1142              *  string: Address of the memory array residing in RAM or ROM.
+1143              *  byteCount: Number of Bytes to be transmitted.
+1144              *
+1145              * Return:
+1146              *  None.
+1147              *
+1148              * Global Variables:
+1149              *  uart_pc_initVar - checked to identify that the component has been  
+1150              *     initialized.
+1151              *
+1152              * Reentrant:
+1153              *  No.
+1154              *
+1155              *******************************************************************************/
+1156              void uart_pc_PutArray(uint8* string, uint8 byteCount)
+1157              {
+1158   1              /* If not Initialized then skip this function*/
+1159   1              if(uart_pc_initVar != 0u)
+1160   1              {
+1161   2                  while(byteCount > 0u)
+1162   2                  {
+1163   3                      uart_pc_PutChar(*string++);
+1164   3                      byteCount--;
+1165   3                  }
+1166   2              }
+1167   1          }
+1168          
+1169          
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 20  
+
+1170              /*******************************************************************************
+1171              * Function Name: uart_pc_PutCRLF
+1172              ********************************************************************************
+1173              *
+1174              * Summary:
+1175              *  Write a character and then carriage return and line feed.
+1176              *
+1177              * Parameters:
+1178              *  txDataByte: uint8 Character to send.
+1179              *
+1180              * Return:
+1181              *  None.
+1182              *
+1183              * Global Variables:
+1184              *  uart_pc_initVar - checked to identify that the component has been  
+1185              *     initialized.
+1186              *
+1187              * Reentrant:
+1188              *  No.
+1189              *
+1190              *******************************************************************************/
+1191              void uart_pc_PutCRLF(uint8 txDataByte)
+1192              {
+1193   1              /* If not Initialized then skip this function*/
+1194   1              if(uart_pc_initVar != 0u)
+1195   1              {
+1196   2                  uart_pc_PutChar(txDataByte);
+1197   2                  uart_pc_PutChar(0x0Du);
+1198   2                  uart_pc_PutChar(0x0Au);
+1199   2              }
+1200   1          }
+1201          
+1202          
+1203              /*******************************************************************************
+1204              * Function Name: uart_pc_GetTxBufferSize
+1205              ********************************************************************************
+1206              *
+1207              * Summary:
+1208              *  Determine the amount of space left in the TX buffer and return the count in
+1209              *  bytes
+1210              *
+1211              * Parameters:
+1212              *  None.
+1213              *
+1214              * Return:
+1215              *  Integer count of the number of bytes left in the TX buffer
+1216              *
+1217              * Global Variables:
+1218              *  uart_pc_txBufferWrite - used to calculate left space. 
+1219              *  uart_pc_txBufferRead - used to calculate left space.
+1220              *
+1221              * Reentrant:
+1222              *  No.
+1223              *
+1224              * Theory:
+1225              *  Allows the user to find out how full the TX Buffer is.
+1226              *
+1227              *******************************************************************************/
+1228              uint8 uart_pc_GetTxBufferSize(void)
+1229              {
+1230   1              uint8 size;
+1231   1      
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 21  
+
+1232   1              #if(uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH)
+              
+                          /* Disable Tx interrupt. */
+                          /* Protect variables that could change on interrupt. */
+                          #if(uart_pc_TX_INTERRUPT_ENABLED)
+                              uart_pc_DisableTxInt();
+                          #endif /* End uart_pc_TX_INTERRUPT_ENABLED */
+              
+                          if(uart_pc_txBufferRead == uart_pc_txBufferWrite)
+                          {
+                              size = 0u;
+                          }
+                          else if(uart_pc_txBufferRead < uart_pc_txBufferWrite)
+                          {
+                              size = (uart_pc_txBufferWrite - uart_pc_txBufferRead);
+                          }
+                          else
+                          {
+                              size = (uart_pc_TXBUFFERSIZE - uart_pc_txBufferRead) + uart_pc_txBufferWrite;
+                          }
+              
+                          /* Enable Tx interrupt. */
+                          #if(uart_pc_TX_INTERRUPT_ENABLED)
+                              uart_pc_EnableTxInt();
+                          #endif /* End uart_pc_TX_INTERRUPT_ENABLED */
+              
+                      #else /* uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+1259   1      
+1260   1                  size = uart_pc_TXSTATUS_REG;
+1261   1      
+1262   1                  /* Is the fifo is full. */
+1263   1                  if(size & uart_pc_TX_STS_FIFO_FULL)
+1264   1                  {
+1265   2                      size = uart_pc_FIFO_LENGTH;
+1266   2                  }
+1267   1                  else if(size & uart_pc_TX_STS_FIFO_EMPTY)
+1268   1                  {
+1269   2                      size = 0u;
+1270   2                  }
+1271   1                  else
+1272   1                  {
+1273   2                      /* We only know there is data in the fifo. */
+1274   2                      size = 1u;
+1275   2                  }
+1276   1      
+1277   1              #endif /* End uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+1278   1      
+1279   1              return(size);
+1280   1          }
+1281          
+1282          
+1283              /*******************************************************************************
+1284              * Function Name: uart_pc_ClearTxBuffer
+1285              ********************************************************************************
+1286              *
+1287              * Summary:
+1288              *  Clear the TX RAM buffer by setting the read and write pointers both to zero.
+1289              *
+1290              * Parameters:
+1291              *  None.
+1292              *
+1293              * Return:
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 22  
+
+1294              *  None.
+1295              *
+1296              * Global Variables:
+1297              *  uart_pc_txBufferWrite - cleared to zero. 
+1298              *  uart_pc_txBufferRead - cleared to zero.
+1299              *
+1300              * Reentrant:
+1301              *  No.
+1302              *
+1303              * Theory:
+1304              *  Setting the pointers to zero makes the system believe there is no data to 
+1305              *  read and writing will resume at address 0 overwriting any data that may have
+1306              *  remained in the RAM.
+1307              *
+1308              * Side Effects:
+1309              *  Any received data not read from the RAM buffer will be lost when overwritten.
+1310              *
+1311              *******************************************************************************/
+1312              void uart_pc_ClearTxBuffer(void)
+1313              {
+1314   1              #if(uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH)
+              
+                          /* Disable Tx interrupt. */
+                          /* Protect variables that could change on interrupt. */
+                          #if(uart_pc_TX_INTERRUPT_ENABLED)
+                              uart_pc_DisableTxInt();
+                          #endif /* End uart_pc_TX_INTERRUPT_ENABLED */
+              
+                          uart_pc_txBufferRead = 0u;
+                          uart_pc_txBufferWrite = 0u;
+              
+                          /* Enable Tx interrupt. */
+                          #if(uart_pc_TX_INTERRUPT_ENABLED)
+                              uart_pc_EnableTxInt();
+                          #endif /* End uart_pc_TX_INTERRUPT_ENABLED */
+              
+                      #endif /* End uart_pc_TXBUFFERSIZE > uart_pc_FIFO_LENGTH */
+1331   1          }
+1332          
+1333          
+1334              /*******************************************************************************
+1335              * Function Name: uart_pc_SendBreak
+1336              ********************************************************************************
+1337              *
+1338              * Summary:
+1339              *  Write a Break command to the UART
+1340              *
+1341              * Parameters:
+1342              *  uint8 retMode:  Wait mode,
+1343              *   0 - Initialize registers for Break, sends the Break signal and return 
+1344              *       imediately.
+1345              *   1 - Wait until Break sending is complete, reinitialize registers to normal
+1346              *       transmission mode then return.
+1347              *   2 - Reinitialize registers to normal transmission mode then return.
+1348              *   3 - both steps: 0 and 1
+1349              *       init registers for Break, send Break signal
+1350              *       wait until Break sending is complete, reinit registers to normal
+1351              *       transmission mode then return.
+1352              *
+1353              * Return:
+1354              *  None.
+1355              *
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 23  
+
+1356              * Global Variables:
+1357              *  uart_pc_initVar - checked to identify that the component has been  
+1358              *     initialized.
+1359              *  tx_period - static variable, used for keeping TX period configuration.
+1360              *
+1361              * Reentrant:
+1362              *  No.
+1363              *
+1364              * Theory:
+1365              *  SendBreak function initializes registers to send 13-bit break signal. It is
+1366              *  important to return the registers configuration to normal for continue 8-bit
+1367              *  operation.
+1368              *  Trere are 3 variants for this API usage:
+1369              *  1) SendBreak(3) - function will send the Break signal and take care on the
+1370              *     configuration returning. Funcition will block CPU untill transmition 
+1371              *     complete.
+1372              *  2) User may want to use bloking time if UART configured to the low speed 
+1373              *     operation
+1374              *     Emample for this case:
+1375              *     SendBreak(0);     - init Break signal transmition
+1376              *         Add your code here to use CPU time
+1377              *     SendBreak(1);     - complete Break operation
+1378              *  3) Same to 2) but user may want to init and use the interrupt for complete 
+1379              *     break operation.
+1380              *     Example for this case:
+1381              *     Init TX interrupt whith "TX - On TX Complete" parameter
+1382              *     SendBreak(0);     - init Break signal transmition
+1383              *         Add your code here to use CPU time
+1384              *     When interrupt appear with UART_TX_STS_COMPLETE status:
+1385              *     SendBreak(2);     - complete Break operation
+1386              *
+1387              * Side Effects:
+1388              *   Uses static variable to keep registers configuration.
+1389              *
+1390              *******************************************************************************/
+1391              void uart_pc_SendBreak(uint8 retMode)
+1392              {
+1393   1      
+1394   1              /* If not Initialized then skip this function*/
+1395   1              if(uart_pc_initVar != 0u)
+1396   1              {
+1397   2                  /*Set the Counter to 13-bits and transmit a 00 byte*/
+1398   2                  /*When that is done then reset the counter value back*/
+1399   2                  uint8 tmpStat;
+1400   2      
+1401   2                  #if(uart_pc_HD_ENABLED) /* Half Duplex mode*/
+              
+                              if( (retMode == uart_pc_SEND_BREAK) ||
+                                  (retMode == uart_pc_SEND_WAIT_REINIT ) )
+                              {
+                                  /* CTRL_HD_SEND_BREAK - sends break bits in HD mode*/
+                                  uart_pc_WriteControlRegister(uart_pc_ReadControlRegister() | \
+                                                                        uart_pc_CTRL_HD_SEND_BREAK);
+                                  /* Send zeros*/
+                                  uart_pc_TXDATA_REG = 0u;
+              
+                                  do /*wait until transmit starts*/
+                                  {
+                                      tmpStat = uart_pc_TXSTATUS_REG;
+                                  }while(tmpStat & uart_pc_TX_STS_FIFO_EMPTY);
+                              }
+              
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 24  
+
+                              if( (retMode == uart_pc_WAIT_FOR_COMLETE_REINIT) || \
+                                  (retMode == uart_pc_SEND_WAIT_REINIT) )
+                              {
+                                  do /*wait until transmit complete*/
+                                  {
+                                      tmpStat = uart_pc_TXSTATUS_REG;
+                                  }while(~tmpStat & uart_pc_TX_STS_COMPLETE);
+                              }
+              
+                              if( (retMode == uart_pc_WAIT_FOR_COMLETE_REINIT) || \
+                                  (retMode == uart_pc_REINIT) || \
+                                  (retMode == uart_pc_SEND_WAIT_REINIT) )
+                              {
+                                  uart_pc_WriteControlRegister(uart_pc_ReadControlRegister() & \
+                                                                       ~uart_pc_CTRL_HD_SEND_BREAK);
+                              }
+              
+                          #else /* uart_pc_HD_ENABLED Full Duplex mode */
+1436   2      
+1437   2                      static uint8 tx_period; 
+1438   2                      
+1439   2                      if( (retMode == uart_pc_SEND_BREAK) || \
+1440   2                          (retMode == uart_pc_SEND_WAIT_REINIT) )
+1441   2                      {
+1442   3                          /* CTRL_HD_SEND_BREAK - skip to send parity bit @ Break signal in Full Duplex mode*/
+1443   3                          if( (uart_pc_PARITY_TYPE != uart_pc__B_UART__NONE_REVB) || \
+1444   3                               uart_pc_PARITY_TYPE_SW )
+1445   3                          {
+1446   4                              uart_pc_WriteControlRegister(uart_pc_ReadControlRegister() | \
+1447   4                                                                    uart_pc_CTRL_HD_SEND_BREAK);
+1448   4                          }                                                          
+1449   3      
+1450   3                          #if(uart_pc_TXCLKGEN_DP)
+1451   3                              tx_period = uart_pc_TXBITCLKTX_COMPLETE_REG;
+1452   3                              uart_pc_TXBITCLKTX_COMPLETE_REG = uart_pc_TXBITCTR_BREAKBITS;
+1453   3                          #else
+                                      tx_period = uart_pc_TXBITCTR_PERIOD_REG;
+                                      uart_pc_TXBITCTR_PERIOD_REG = uart_pc_TXBITCTR_BREAKBITS8X;
+                                  #endif /* End uart_pc_TXCLKGEN_DP */
+1457   3      
+1458   3                          /* Send zeros*/
+1459   3                          uart_pc_TXDATA_REG = 0u;
+1460   3      
+1461   3                          do /*wait until transmit starts*/
+1462   3                          {
+1463   4                              tmpStat = uart_pc_TXSTATUS_REG;
+1464   4                          }while(tmpStat & uart_pc_TX_STS_FIFO_EMPTY);
+1465   3                      }
+1466   2      
+1467   2                      if( (retMode == uart_pc_WAIT_FOR_COMLETE_REINIT) || \
+1468   2                          (retMode == uart_pc_SEND_WAIT_REINIT) )
+1469   2                      {
+1470   3                          do /*wait until transmit complete*/
+1471   3                          {
+1472   4                              tmpStat = uart_pc_TXSTATUS_REG;
+1473   4                          }while(~tmpStat & uart_pc_TX_STS_COMPLETE);
+1474   3                      }
+1475   2      
+1476   2                      if( (retMode == uart_pc_WAIT_FOR_COMLETE_REINIT) || \
+1477   2                          (retMode == uart_pc_REINIT) || \
+1478   2                          (retMode == uart_pc_SEND_WAIT_REINIT) )
+1479   2                      {
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 25  
+
+1480   3      
+1481   3                          #if(uart_pc_TXCLKGEN_DP)
+1482   3                              uart_pc_TXBITCLKTX_COMPLETE_REG = tx_period;
+1483   3                          #else
+                                      uart_pc_TXBITCTR_PERIOD_REG = tx_period;
+                                  #endif /* End uart_pc_TXCLKGEN_DP */
+1486   3      
+1487   3                          if( (uart_pc_PARITY_TYPE != uart_pc__B_UART__NONE_REVB) || 
+1488   3                               uart_pc_PARITY_TYPE_SW )
+1489   3                          {
+1490   4                              uart_pc_WriteControlRegister(uart_pc_ReadControlRegister() & \
+1491   4                                                                   ~uart_pc_CTRL_HD_SEND_BREAK);
+1492   4                          }                                     
+1493   3                      }
+1494   2                  #endif    /* End uart_pc_HD_ENABLED */
+1495   2              }
+1496   1          }
+1497          
+1498          
+1499              /*******************************************************************************
+1500              * Function Name: uart_pc_SetTxAddressMode
+1501              ********************************************************************************
+1502              *
+1503              * Summary:
+1504              *  Set the transmit addressing mode
+1505              *
+1506              * Parameters:
+1507              *  addressMode: 0 -> Space
+1508              *               1 -> Mark
+1509              *
+1510              * Return:
+1511              *  None.
+1512              *
+1513              *******************************************************************************/
+1514              void uart_pc_SetTxAddressMode(uint8 addressMode) 
+1515              {
+1516   1              /* Mark/Space sending enable*/
+1517   1              if(addressMode != 0)
+1518   1              {
+1519   2                  uart_pc_WriteControlRegister(uart_pc_ReadControlRegister() | uart_pc_CTRL_MARK);
+1520   2              }
+1521   1              else
+1522   1              {
+1523   2                  uart_pc_WriteControlRegister(uart_pc_ReadControlRegister() & ~uart_pc_CTRL_MARK);
+1524   2              }
+1525   1          }
+1526          
+1527          #endif  /* Enduart_pc_TX_ENABLED */
+1528          
+1529          #if(uart_pc_HD_ENABLED)
+              
+              
+                  /*******************************************************************************
+                  * Function Name: uart_pc_LoadTxConfig
+                  ********************************************************************************
+                  *
+                  * Summary:
+                  *  Unloads the Rx configuration if required and loads the
+                  *  Tx configuration. It is the users responsibility to ensure that any
+                  *  transaction is complete and it is safe to unload the Tx
+                  *  configuration.
+                  *
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 26  
+
+                  * Parameters:
+                  *  None.
+                  *
+                  * Return:
+                  *  None.
+                  *
+                  * Theory:
+                  *  Valid only for half duplex UART. 
+                  *
+                  *******************************************************************************/
+                  void uart_pc_LoadTxConfig(void) 
+                  {
+                      uart_pc_WriteControlRegister(uart_pc_ReadControlRegister() | uart_pc_CTRL_HD_SEND);
+                      uart_pc_RXBITCTR_PERIOD_REG = uart_pc_HD_TXBITCTR_INIT;
+                  }
+              
+              
+                  /*******************************************************************************
+                  * Function Name: uart_pc_LoadRxConfig
+                  ********************************************************************************
+                  *
+                  * Summary:
+                  *  Unloads the Tx configuration if required and loads the
+                  *  Rx configuration. It is the users responsibility to ensure that any
+                  *  transaction is complete and it is safe to unload the Rx
+                  *  configuration.
+                  *
+                  * Parameters:
+                  *  None.
+                  *
+                  * Return:
+                  *  None.
+                  *
+                  * Theory:
+                  *  Valid only for half duplex UART
+                  *
+                  *******************************************************************************/
+                  void uart_pc_LoadRxConfig(void) 
+                  {
+                      uart_pc_WriteControlRegister(uart_pc_ReadControlRegister() & ~uart_pc_CTRL_HD_SEND);
+                      uart_pc_RXBITCTR_PERIOD_REG = uart_pc_HD_RXBITCTR_INIT;
+                  }
+              
+              #endif  /* uart_pc_HD_ENABLED */
+1586          
+1587          
+1588          /* [] END OF FILE */
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 27  
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION uart_pc_Start (BEGIN)
+                                           ; SOURCE LINE # 73
+                                           ; SOURCE LINE # 74
+                                           ; SOURCE LINE # 76
+0000 900000      R     MOV     DPTR,#uart_pc_initVar
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 7009              JNZ     ?C0001
+                                           ; SOURCE LINE # 77
+                                           ; SOURCE LINE # 78
+0008 120000      R     LCALL   uart_pc_Init
+                                           ; SOURCE LINE # 79
+000B 900000      R     MOV     DPTR,#uart_pc_initVar
+000E 7401              MOV     A,#01H
+0010 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 80
+0011         ?C0001:
+                                           ; SOURCE LINE # 81
+0011 120000      R     LCALL   uart_pc_Enable
+                                           ; SOURCE LINE # 82
+0014 22                RET     
+             ; FUNCTION uart_pc_Start (END)
+
+             ; FUNCTION uart_pc_Init (BEGIN)
+                                           ; SOURCE LINE # 101
+                                           ; SOURCE LINE # 102
+                                           ; SOURCE LINE # 107
+0000 7C00        E     MOV     R4,#HIGH uart_pc_RXISR
+0002 7D00        E     MOV     R5,#LOW uart_pc_RXISR
+0004 7F12              MOV     R7,#012H
+0006 120000      E     LCALL   _CyIntSetVector
+                                           ; SOURCE LINE # 108
+0009 7D07              MOV     R5,#07H
+000B 7F12              MOV     R7,#012H
+000D 120000      E     LCALL   _CyIntSetPriority
+                                           ; SOURCE LINE # 118
+0010 906485            MOV     DPTR,#06485H
+0013 7420              MOV     A,#020H
+0015 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 130
+0016 906526            MOV     DPTR,#06526H
+0019 7407              MOV     A,#07H
+001B F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 131
+001C 906536            MOV     DPTR,#06536H
+001F 7448              MOV     A,#048H
+0021 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 144
+0022 906486            MOV     DPTR,#06486H
+0025 7402              MOV     A,#02H
+0027 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 154
+0028 22                RET     
+             ; FUNCTION uart_pc_Init (END)
+
+             ; FUNCTION uart_pc_Enable (BEGIN)
+                                           ; SOURCE LINE # 171
+                                           ; SOURCE LINE # 172
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 28  
+
+                                           ; SOURCE LINE # 174
+0000 120000      E     LCALL   CyEnterCriticalSection
+0003 900000      R     MOV     DPTR,#enableInterrupts
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 178
+0008 906494            MOV     DPTR,#06494H
+000B E0                MOVX    A,@DPTR
+000C FF                MOV     R7,A
+000D EF                MOV     A,R7
+000E 4420              ORL     A,#020H
+0010 FF                MOV     R7,A
+0011 EF                MOV     A,R7
+0012 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 180
+0013 906495            MOV     DPTR,#06495H
+0016 E0                MOVX    A,@DPTR
+0017 FF                MOV     R7,A
+0018 EF                MOV     A,R7
+0019 4410              ORL     A,#010H
+001B FF                MOV     R7,A
+001C EF                MOV     A,R7
+001D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 182
+001E 7F12              MOV     R7,#012H
+0020 120000      E     LCALL   _?CyIntEnable
+                                           ; SOURCE LINE # 192
+0023 906496            MOV     DPTR,#06496H
+0026 E0                MOVX    A,@DPTR
+0027 FF                MOV     R7,A
+0028 EF                MOV     A,R7
+0029 4410              ORL     A,#010H
+002B FF                MOV     R7,A
+002C EF                MOV     A,R7
+002D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 200
+002E 9043A2            MOV     DPTR,#043A2H
+0031 E0                MOVX    A,@DPTR
+0032 FF                MOV     R7,A
+0033 EF                MOV     A,R7
+0034 4401              ORL     A,#01H
+0036 FF                MOV     R7,A
+0037 EF                MOV     A,R7
+0038 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 203
+0039 900000      R     MOV     DPTR,#enableInterrupts
+003C E0                MOVX    A,@DPTR
+003D FF                MOV     R7,A
+003E 120000      E     LCALL   _CyExitCriticalSection
+                                           ; SOURCE LINE # 204
+0041 22                RET     
+             ; FUNCTION uart_pc_Enable (END)
+
+             ; FUNCTION uart_pc_Stop (BEGIN)
+                                           ; SOURCE LINE # 221
+                                           ; SOURCE LINE # 222
+                                           ; SOURCE LINE # 224
+0000 120000      E     LCALL   CyEnterCriticalSection
+0003 900000      R     MOV     DPTR,#enableInterrupts
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 228
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 29  
+
+0008 906494            MOV     DPTR,#06494H
+000B E0                MOVX    A,@DPTR
+000C FF                MOV     R7,A
+000D EF                MOV     A,R7
+000E 54DF              ANL     A,#0DFH
+0010 FF                MOV     R7,A
+0011 EF                MOV     A,R7
+0012 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 239
+0013 9043A2            MOV     DPTR,#043A2H
+0016 E0                MOVX    A,@DPTR
+0017 FF                MOV     R7,A
+0018 EF                MOV     A,R7
+0019 54FE              ANL     A,#0FEH
+001B FF                MOV     R7,A
+001C EF                MOV     A,R7
+001D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 244
+001E 906495            MOV     DPTR,#06495H
+0021 E0                MOVX    A,@DPTR
+0022 FF                MOV     R7,A
+0023 EF                MOV     A,R7
+0024 54EF              ANL     A,#0EFH
+0026 FF                MOV     R7,A
+0027 EF                MOV     A,R7
+0028 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 246
+0029 120000      R     LCALL   uart_pc_DisableRxInt
+                                           ; SOURCE LINE # 251
+002C 906496            MOV     DPTR,#06496H
+002F E0                MOVX    A,@DPTR
+0030 FF                MOV     R7,A
+0031 EF                MOV     A,R7
+0032 54EF              ANL     A,#0EFH
+0034 FF                MOV     R7,A
+0035 EF                MOV     A,R7
+0036 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 257
+0037 900000      R     MOV     DPTR,#enableInterrupts
+003A E0                MOVX    A,@DPTR
+003B FF                MOV     R7,A
+003C 120000      E     LCALL   _CyExitCriticalSection
+                                           ; SOURCE LINE # 258
+003F 22                RET     
+             ; FUNCTION uart_pc_Stop (END)
+
+             ; FUNCTION uart_pc_ReadControlRegister (BEGIN)
+                                           ; SOURCE LINE # 275
+                                           ; SOURCE LINE # 276
+                                           ; SOURCE LINE # 278
+0000 7F00              MOV     R7,#00H
+                                           ; SOURCE LINE # 282
+0002         ?C0006:
+0002 22                RET     
+             ; FUNCTION uart_pc_ReadControlRegister (END)
+
+             ; FUNCTION _uart_pc_WriteControlRegister (BEGIN)
+                                           ; SOURCE LINE # 299
+0000 900000      R     MOV     DPTR,#control
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 300
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 30  
+
+                                           ; SOURCE LINE # 302
+0005 900000      R     MOV     DPTR,#control
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A 900000      R     MOV     DPTR,#control
+000D EF                MOV     A,R7
+000E F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 306
+000F 22                RET     
+             ; FUNCTION _uart_pc_WriteControlRegister (END)
+
+             ; FUNCTION uart_pc_EnableRxInt (BEGIN)
+                                           ; SOURCE LINE # 330
+                                           ; SOURCE LINE # 331
+                                           ; SOURCE LINE # 332
+0000 7F12              MOV     R7,#012H
+0002 120000      E     LCALL   _?CyIntEnable
+                                           ; SOURCE LINE # 333
+0005 22                RET     
+             ; FUNCTION uart_pc_EnableRxInt (END)
+
+             ; FUNCTION uart_pc_DisableRxInt (BEGIN)
+                                           ; SOURCE LINE # 353
+                                           ; SOURCE LINE # 354
+                                           ; SOURCE LINE # 355
+0000 7F12              MOV     R7,#012H
+0002 120000      E     LCALL   _?CyIntDisable
+                                           ; SOURCE LINE # 356
+0005 22                RET     
+             ; FUNCTION uart_pc_DisableRxInt (END)
+
+             ; FUNCTION _uart_pc_SetRxInterruptMode (BEGIN)
+                                           ; SOURCE LINE # 379
+0000 900000      R     MOV     DPTR,#intSrc
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 380
+                                           ; SOURCE LINE # 381
+0005 900000      R     MOV     DPTR,#intSrc
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A 906485            MOV     DPTR,#06485H
+000D EF                MOV     A,R7
+000E F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 382
+000F 22                RET     
+             ; FUNCTION _uart_pc_SetRxInterruptMode (END)
+
+             ; FUNCTION uart_pc_ReadRxData (BEGIN)
+                                           ; SOURCE LINE # 412
+                                           ; SOURCE LINE # 413
+                                           ; SOURCE LINE # 421
+0000 120000      R     LCALL   uart_pc_DisableRxInt
+                                           ; SOURCE LINE # 424
+0003 900000      R     MOV     DPTR,#uart_pc_rxBufferWrite
+0006 E0                MOVX    A,@DPTR
+0007 FF                MOV     R7,A
+0008 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+000B E0                MOVX    A,@DPTR
+000C FE                MOV     R6,A
+000D EE                MOV     A,R6
+000E B5070B            CJNE    A,AR7,?C0012
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 31  
+
+0011 900000      R     MOV     DPTR,#uart_pc_rxBufferLoopDetect
+0014 E0                MOVX    A,@DPTR
+0015 FF                MOV     R7,A
+0016 EF                MOV     A,R7
+0017 D3                SETB    C
+0018 9400              SUBB    A,#00H
+001A 403E              JC      ?C0011
+001C         ?C0012:
+                                           ; SOURCE LINE # 426
+                                           ; SOURCE LINE # 427
+001C 900000      R     MOV     DPTR,#uart_pc_rxBufferLoopDetect
+001F E0                MOVX    A,@DPTR
+0020 FF                MOV     R7,A
+0021 EF                MOV     A,R7
+0022 D3                SETB    C
+0023 9400              SUBB    A,#00H
+0025 4005              JC      ?C0013
+                                           ; SOURCE LINE # 428
+                                           ; SOURCE LINE # 429
+0027 900000      R     MOV     DPTR,#uart_pc_rxBufferLoopDetect
+002A E4                CLR     A
+002B F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 430
+002C         ?C0013:
+                                           ; SOURCE LINE # 432
+002C 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+002F E0                MOVX    A,@DPTR
+0030 FF                MOV     R7,A
+0031 EF                MOV     A,R7
+0032 C3                CLR     C
+0033 9432              SUBB    A,#032H
+0035 4005              JC      ?C0014
+                                           ; SOURCE LINE # 433
+                                           ; SOURCE LINE # 434
+0037 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+003A E4                CLR     A
+003B F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 435
+003C         ?C0014:
+                                           ; SOURCE LINE # 437
+003C 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+003F E0                MOVX    A,@DPTR
+0040 FF                MOV     R7,A
+0041 7400        R     MOV     A,#LOW uart_pc_rxBuffer
+0043 2F                ADD     A,R7
+0044 F582              MOV     DPL,A
+0046 E4                CLR     A
+0047 3400        R     ADDC    A,#HIGH uart_pc_rxBuffer
+0049 F583              MOV     DPH,A
+004B E0                MOVX    A,@DPTR
+004C FF                MOV     R7,A
+004D 900000      R     MOV     DPTR,#rxData
+0050 EF                MOV     A,R7
+0051 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 439
+0052 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+0055 E0                MOVX    A,@DPTR
+0056 04                INC     A
+0057 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 440
+0058 800A              SJMP    ?C0015
+005A         ?C0011:
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 32  
+
+                                           ; SOURCE LINE # 442
+                                           ; SOURCE LINE # 443
+005A 906444            MOV     DPTR,#06444H
+005D E0                MOVX    A,@DPTR
+005E FF                MOV     R7,A
+005F 900000      R     MOV     DPTR,#rxData
+0062 EF                MOV     A,R7
+0063 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 444
+0064         ?C0015:
+                                           ; SOURCE LINE # 448
+0064 120000      R     LCALL   uart_pc_EnableRxInt
+                                           ; SOURCE LINE # 458
+0067 900000      R     MOV     DPTR,#rxData
+006A E0                MOVX    A,@DPTR
+006B FF                MOV     R7,A
+                                           ; SOURCE LINE # 459
+006C         ?C0016:
+006C 22                RET     
+             ; FUNCTION uart_pc_ReadRxData (END)
+
+             ; FUNCTION uart_pc_ReadRxStatus (BEGIN)
+                                           ; SOURCE LINE # 485
+                                           ; SOURCE LINE # 486
+                                           ; SOURCE LINE # 489
+0000 906465            MOV     DPTR,#06465H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 900000      R     MOV     DPTR,#status
+0008 EF                MOV     A,R7
+0009 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 490
+000A 900000      R     MOV     DPTR,#status
+000D E0                MOVX    A,@DPTR
+000E FF                MOV     R7,A
+000F EF                MOV     A,R7
+0010 547F              ANL     A,#07FH
+0012 FF                MOV     R7,A
+0013 900000      R     MOV     DPTR,#status
+0016 EF                MOV     A,R7
+0017 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 493
+0018 900000      R     MOV     DPTR,#uart_pc_rxBufferOverflow
+001B E0                MOVX    A,@DPTR
+001C FF                MOV     R7,A
+001D EF                MOV     A,R7
+001E 6013              JZ      ?C0017
+                                           ; SOURCE LINE # 494
+                                           ; SOURCE LINE # 495
+0020 900000      R     MOV     DPTR,#status
+0023 E0                MOVX    A,@DPTR
+0024 FF                MOV     R7,A
+0025 EF                MOV     A,R7
+0026 4480              ORL     A,#080H
+0028 FF                MOV     R7,A
+0029 900000      R     MOV     DPTR,#status
+002C EF                MOV     A,R7
+002D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 496
+002E 900000      R     MOV     DPTR,#uart_pc_rxBufferOverflow
+0031 E4                CLR     A
+0032 F0                MOVX    @DPTR,A
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 33  
+
+                                           ; SOURCE LINE # 497
+0033         ?C0017:
+                                           ; SOURCE LINE # 500
+0033 900000      R     MOV     DPTR,#status
+0036 E0                MOVX    A,@DPTR
+0037 FF                MOV     R7,A
+                                           ; SOURCE LINE # 501
+0038         ?C0018:
+0038 22                RET     
+             ; FUNCTION uart_pc_ReadRxStatus (END)
+
+             ; FUNCTION uart_pc_GetChar (BEGIN)
+                                           ; SOURCE LINE # 533
+                                           ; SOURCE LINE # 534
+                                           ; SOURCE LINE # 535
+0000 900000      R     MOV     DPTR,#rxData
+0003 E4                CLR     A
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 543
+0005 120000      R     LCALL   uart_pc_DisableRxInt
+                                           ; SOURCE LINE # 546
+0008 900000      R     MOV     DPTR,#uart_pc_rxBufferWrite
+000B E0                MOVX    A,@DPTR
+000C FF                MOV     R7,A
+000D 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+0010 E0                MOVX    A,@DPTR
+0011 FE                MOV     R6,A
+0012 EE                MOV     A,R6
+0013 B5070B            CJNE    A,AR7,?C0020
+0016 900000      R     MOV     DPTR,#uart_pc_rxBufferLoopDetect
+0019 E0                MOVX    A,@DPTR
+001A FF                MOV     R7,A
+001B EF                MOV     A,R7
+001C D3                SETB    C
+001D 9400              SUBB    A,#00H
+001F 403E              JC      ?C0019
+0021         ?C0020:
+                                           ; SOURCE LINE # 548
+                                           ; SOURCE LINE # 549
+0021 900000      R     MOV     DPTR,#uart_pc_rxBufferLoopDetect
+0024 E0                MOVX    A,@DPTR
+0025 FF                MOV     R7,A
+0026 EF                MOV     A,R7
+0027 D3                SETB    C
+0028 9400              SUBB    A,#00H
+002A 4005              JC      ?C0021
+                                           ; SOURCE LINE # 550
+                                           ; SOURCE LINE # 551
+002C 900000      R     MOV     DPTR,#uart_pc_rxBufferLoopDetect
+002F E4                CLR     A
+0030 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 552
+0031         ?C0021:
+                                           ; SOURCE LINE # 554
+0031 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+0034 E0                MOVX    A,@DPTR
+0035 FF                MOV     R7,A
+0036 EF                MOV     A,R7
+0037 C3                CLR     C
+0038 9432              SUBB    A,#032H
+003A 4005              JC      ?C0022
+                                           ; SOURCE LINE # 555
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 34  
+
+                                           ; SOURCE LINE # 556
+003C 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+003F E4                CLR     A
+0040 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 557
+0041         ?C0022:
+                                           ; SOURCE LINE # 559
+0041 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+0044 E0                MOVX    A,@DPTR
+0045 FF                MOV     R7,A
+0046 7400        R     MOV     A,#LOW uart_pc_rxBuffer
+0048 2F                ADD     A,R7
+0049 F582              MOV     DPL,A
+004B E4                CLR     A
+004C 3400        R     ADDC    A,#HIGH uart_pc_rxBuffer
+004E F583              MOV     DPH,A
+0050 E0                MOVX    A,@DPTR
+0051 FF                MOV     R7,A
+0052 900000      R     MOV     DPTR,#rxData
+0055 EF                MOV     A,R7
+0056 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 561
+0057 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+005A E0                MOVX    A,@DPTR
+005B 04                INC     A
+005C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 562
+005D 802E              SJMP    ?C0023
+005F         ?C0019:
+                                           ; SOURCE LINE # 564
+005F 906465            MOV     DPTR,#06465H
+0062 E0                MOVX    A,@DPTR
+0063 FF                MOV     R7,A
+0064 900000      R     MOV     DPTR,#rxStatus
+0067 EF                MOV     A,R7
+0068 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 565
+0069 900000      R     MOV     DPTR,#rxStatus
+006C E0                MOVX    A,@DPTR
+006D FF                MOV     R7,A
+006E EF                MOV     A,R7
+006F 30E51B            JNB     ACC.5,?C0023
+                                           ; SOURCE LINE # 566
+                                           ; SOURCE LINE # 567
+0072 906444            MOV     DPTR,#06444H
+0075 E0                MOVX    A,@DPTR
+0076 FF                MOV     R7,A
+0077 900000      R     MOV     DPTR,#rxData
+007A EF                MOV     A,R7
+007B F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 569
+007C 900000      R     MOV     DPTR,#rxStatus
+007F E0                MOVX    A,@DPTR
+0080 FF                MOV     R7,A
+0081 EF                MOV     A,R7
+0082 541E              ANL     A,#01EH
+0084 FF                MOV     R7,A
+0085 EF                MOV     A,R7
+0086 6005              JZ      ?C0023
+                                           ; SOURCE LINE # 571
+                                           ; SOURCE LINE # 572
+0088 900000      R     MOV     DPTR,#rxData
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 35  
+
+008B E4                CLR     A
+008C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 573
+                                           ; SOURCE LINE # 574
+                                           ; SOURCE LINE # 575
+008D         ?C0023:
+                                           ; SOURCE LINE # 579
+008D 120000      R     LCALL   uart_pc_EnableRxInt
+                                           ; SOURCE LINE # 597
+0090 900000      R     MOV     DPTR,#rxData
+0093 E0                MOVX    A,@DPTR
+0094 FF                MOV     R7,A
+                                           ; SOURCE LINE # 598
+0095         ?C0026:
+0095 22                RET     
+             ; FUNCTION uart_pc_GetChar (END)
+
+             ; FUNCTION uart_pc_GetByte (BEGIN)
+                                           ; SOURCE LINE # 618
+                                           ; SOURCE LINE # 619
+                                           ; SOURCE LINE # 620
+0000 120000      R     LCALL   uart_pc_ReadRxStatus
+0003 7E00              MOV     R6,#00H
+0005 EF                MOV     A,R7
+0006 7F00              MOV     R7,#00H
+0008 FE                MOV     R6,A
+0009 C006              PUSH    AR6
+000B C007              PUSH    AR7
+000D 120000      R     LCALL   uart_pc_ReadRxData
+0010 EF                MOV     A,R7
+0011 FD                MOV     R5,A
+0012 7C00              MOV     R4,#00H
+0014 D007              POP     AR7
+0016 D006              POP     AR6
+0018 EE                MOV     A,R6
+0019 4C                ORL     A,R4
+001A FE                MOV     R6,A
+001B EF                MOV     A,R7
+001C 4D                ORL     A,R5
+001D FF                MOV     R7,A
+                                           ; SOURCE LINE # 621
+001E         ?C0027:
+001E 22                RET     
+             ; FUNCTION uart_pc_GetByte (END)
+
+             ; FUNCTION uart_pc_GetRxBufferSize (BEGIN)
+                                           ; SOURCE LINE # 651
+                                           ; SOURCE LINE # 652
+                                           ; SOURCE LINE # 660
+0000 120000      R     LCALL   uart_pc_DisableRxInt
+                                           ; SOURCE LINE # 663
+0003 900000      R     MOV     DPTR,#uart_pc_rxBufferWrite
+0006 E0                MOVX    A,@DPTR
+0007 FF                MOV     R7,A
+0008 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+000B E0                MOVX    A,@DPTR
+000C FE                MOV     R6,A
+000D EE                MOV     A,R6
+000E B5071A            CJNE    A,AR7,?C0028
+                                           ; SOURCE LINE # 664
+                                           ; SOURCE LINE # 665
+0011 900000      R     MOV     DPTR,#uart_pc_rxBufferLoopDetect
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 36  
+
+0014 E0                MOVX    A,@DPTR
+0015 FF                MOV     R7,A
+0016 EF                MOV     A,R7
+0017 D3                SETB    C
+0018 9400              SUBB    A,#00H
+001A 4008              JC      ?C0029
+                                           ; SOURCE LINE # 666
+                                           ; SOURCE LINE # 667
+001C 900000      R     MOV     DPTR,#size
+001F 7432              MOV     A,#032H
+0021 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 668
+0022 8042              SJMP    ?C0031
+0024         ?C0029:
+                                           ; SOURCE LINE # 670
+                                           ; SOURCE LINE # 671
+0024 900000      R     MOV     DPTR,#size
+0027 E4                CLR     A
+0028 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 672
+                                           ; SOURCE LINE # 673
+0029 803B              SJMP    ?C0031
+002B         ?C0028:
+                                           ; SOURCE LINE # 674
+002B 900000      R     MOV     DPTR,#uart_pc_rxBufferWrite
+002E E0                MOVX    A,@DPTR
+002F FF                MOV     R7,A
+0030 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+0033 E0                MOVX    A,@DPTR
+0034 FE                MOV     R6,A
+0035 EE                MOV     A,R6
+0036 C3                CLR     C
+0037 9F                SUBB    A,R7
+0038 5015              JNC     ?C0032
+                                           ; SOURCE LINE # 675
+                                           ; SOURCE LINE # 676
+003A 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+003D E0                MOVX    A,@DPTR
+003E FF                MOV     R7,A
+003F 900000      R     MOV     DPTR,#uart_pc_rxBufferWrite
+0042 E0                MOVX    A,@DPTR
+0043 FE                MOV     R6,A
+0044 C3                CLR     C
+0045 EE                MOV     A,R6
+0046 9F                SUBB    A,R7
+0047 FF                MOV     R7,A
+0048 900000      R     MOV     DPTR,#size
+004B EF                MOV     A,R7
+004C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 677
+004D 8017              SJMP    ?C0031
+004F         ?C0032:
+                                           ; SOURCE LINE # 679
+                                           ; SOURCE LINE # 680
+004F 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+0052 E0                MOVX    A,@DPTR
+0053 FF                MOV     R7,A
+0054 C3                CLR     C
+0055 7432              MOV     A,#032H
+0057 9F                SUBB    A,R7
+0058 FF                MOV     R7,A
+0059 900000      R     MOV     DPTR,#uart_pc_rxBufferWrite
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 37  
+
+005C E0                MOVX    A,@DPTR
+005D FE                MOV     R6,A
+005E EF                MOV     A,R7
+005F 2E                ADD     A,R6
+0060 FF                MOV     R7,A
+0061 900000      R     MOV     DPTR,#size
+0064 EF                MOV     A,R7
+0065 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 681
+0066         ?C0031:
+                                           ; SOURCE LINE # 685
+0066 120000      R     LCALL   uart_pc_EnableRxInt
+                                           ; SOURCE LINE # 695
+0069 900000      R     MOV     DPTR,#size
+006C E0                MOVX    A,@DPTR
+006D FF                MOV     R7,A
+                                           ; SOURCE LINE # 696
+006E         ?C0034:
+006E 22                RET     
+             ; FUNCTION uart_pc_GetRxBufferSize (END)
+
+             ; FUNCTION uart_pc_ClearRxBuffer (BEGIN)
+                                           ; SOURCE LINE # 729
+                                           ; SOURCE LINE # 730
+                                           ; SOURCE LINE # 735
+0000 120000      R     LCALL   uart_pc_DisableRxInt
+                                           ; SOURCE LINE # 738
+0003 900000      R     MOV     DPTR,#uart_pc_rxBufferRead
+0006 E4                CLR     A
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 739
+0008 900000      R     MOV     DPTR,#uart_pc_rxBufferWrite
+000B E4                CLR     A
+000C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 740
+000D 900000      R     MOV     DPTR,#uart_pc_rxBufferLoopDetect
+0010 E4                CLR     A
+0011 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 741
+0012 900000      R     MOV     DPTR,#uart_pc_rxBufferOverflow
+0015 E4                CLR     A
+0016 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 745
+0017 120000      R     LCALL   uart_pc_EnableRxInt
+                                           ; SOURCE LINE # 748
+001A 22                RET     
+             ; FUNCTION uart_pc_ClearRxBuffer (END)
+
+             ; FUNCTION _uart_pc_SetRxAddressMode (BEGIN)
+                                           ; SOURCE LINE # 771
+0000 900000      R     MOV     DPTR,#addressMode
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 772
+                                           ; SOURCE LINE # 784
+0005 900000      R     MOV     DPTR,#addressMode
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A 900000      R     MOV     DPTR,#addressMode
+000D EF                MOV     A,R7
+000E F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 786
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 38  
+
+000F 22                RET     
+             ; FUNCTION _uart_pc_SetRxAddressMode (END)
+
+             ; FUNCTION _uart_pc_SetRxAddress1 (BEGIN)
+                                           ; SOURCE LINE # 803
+0000 900000      R     MOV     DPTR,#address
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 805
+                                           ; SOURCE LINE # 806
+0005 900000      R     MOV     DPTR,#address
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A 906424            MOV     DPTR,#06424H
+000D EF                MOV     A,R7
+000E F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 807
+000F 22                RET     
+             ; FUNCTION _uart_pc_SetRxAddress1 (END)
+
+             ; FUNCTION _uart_pc_SetRxAddress2 (BEGIN)
+                                           ; SOURCE LINE # 824
+0000 900000      R     MOV     DPTR,#address
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 825
+                                           ; SOURCE LINE # 826
+0005 900000      R     MOV     DPTR,#address
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A 906434            MOV     DPTR,#06434H
+000D EF                MOV     A,R7
+000E F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 827
+000F 22                RET     
+             ; FUNCTION _uart_pc_SetRxAddress2 (END)
+
+             ; FUNCTION _uart_pc_SetTxInterruptMode (BEGIN)
+                                           ; SOURCE LINE # 902
+0000 900000      R     MOV     DPTR,#intSrc
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 903
+                                           ; SOURCE LINE # 904
+0005 900000      R     MOV     DPTR,#intSrc
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A 906486            MOV     DPTR,#06486H
+000D EF                MOV     A,R7
+000E F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 905
+000F 22                RET     
+             ; FUNCTION _uart_pc_SetTxInterruptMode (END)
+
+             ; FUNCTION _uart_pc_WriteTxData (BEGIN)
+                                           ; SOURCE LINE # 936
+0000 900000      R     MOV     DPTR,#txDataByte
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 937
+                                           ; SOURCE LINE # 939
+0005 900000      R     MOV     DPTR,#uart_pc_initVar
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 39  
+
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A EF                MOV     A,R7
+000B 600A              JZ      ?C0041
+                                           ; SOURCE LINE # 940
+                                           ; SOURCE LINE # 977
+000D 900000      R     MOV     DPTR,#txDataByte
+0010 E0                MOVX    A,@DPTR
+0011 FF                MOV     R7,A
+0012 906446            MOV     DPTR,#06446H
+0015 EF                MOV     A,R7
+0016 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 980
+                                           ; SOURCE LINE # 981
+0017         ?C0041:
+0017 22                RET     
+             ; FUNCTION _uart_pc_WriteTxData (END)
+
+             ; FUNCTION uart_pc_ReadTxStatus (BEGIN)
+                                           ; SOURCE LINE # 1004
+                                           ; SOURCE LINE # 1005
+                                           ; SOURCE LINE # 1006
+0000 906466            MOV     DPTR,#06466H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+                                           ; SOURCE LINE # 1007
+0005         ?C0042:
+0005 22                RET     
+             ; FUNCTION uart_pc_ReadTxStatus (END)
+
+             ; FUNCTION _uart_pc_PutChar (BEGIN)
+                                           ; SOURCE LINE # 1040
+0000 900000      R     MOV     DPTR,#txDataByte
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1041
+0005         ?C0043:
+                                           ; SOURCE LINE # 1085
+0005 906466            MOV     DPTR,#06466H
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A EF                MOV     A,R7
+000B 20E2F7            JB      ACC.2,?C0043
+000E         ?C0044:
+                                           ; SOURCE LINE # 1088
+000E 900000      R     MOV     DPTR,#txDataByte
+0011 E0                MOVX    A,@DPTR
+0012 FF                MOV     R7,A
+0013 906446            MOV     DPTR,#06446H
+0016 EF                MOV     A,R7
+0017 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1091
+0018 22                RET     
+             ; FUNCTION _uart_pc_PutChar (END)
+
+             ; FUNCTION _uart_pc_PutString (BEGIN)
+                                           ; SOURCE LINE # 1120
+0000 900000      R     MOV     DPTR,#string
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 1121
+                                           ; SOURCE LINE # 1123
+0006 900000      R     MOV     DPTR,#uart_pc_initVar
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 40  
+
+0009 E0                MOVX    A,@DPTR
+000A FF                MOV     R7,A
+000B EF                MOV     A,R7
+000C 6020              JZ      ?C0049
+                                           ; SOURCE LINE # 1124
+000E         ?C0047:
+                                           ; SOURCE LINE # 1126
+000E 900000      R     MOV     DPTR,#string
+0011 120000      E     LCALL   ?C?PLDXDATA
+0014 120000      E     LCALL   ?C?CLDPTR
+0017 FF                MOV     R7,A
+0018 EF                MOV     A,R7
+0019 6013              JZ      ?C0049
+                                           ; SOURCE LINE # 1127
+                                           ; SOURCE LINE # 1128
+001B 900000      R     MOV     DPTR,#string
+001E E4                CLR     A
+001F 75F001            MOV     B,#01H
+0022 120000      E     LCALL   ?C?PLDIXDATA
+0025 120000      E     LCALL   ?C?CLDPTR
+0028 FF                MOV     R7,A
+0029 120000      R     LCALL   _uart_pc_PutChar
+                                           ; SOURCE LINE # 1129
+002C 80E0              SJMP    ?C0047
+                                           ; SOURCE LINE # 1130
+                                           ; SOURCE LINE # 1131
+002E         ?C0049:
+002E 22                RET     
+             ; FUNCTION _uart_pc_PutString (END)
+
+             ; FUNCTION _uart_pc_PutArray (BEGIN)
+                                           ; SOURCE LINE # 1156
+0000 900000      R     MOV     DPTR,#string
+0003 120000      E     LCALL   ?C?PSTXDATA
+0006 900000      R     MOV     DPTR,#byteCount
+0009 ED                MOV     A,R5
+000A F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1157
+                                           ; SOURCE LINE # 1159
+000B 900000      R     MOV     DPTR,#uart_pc_initVar
+000E E0                MOVX    A,@DPTR
+000F FF                MOV     R7,A
+0010 EF                MOV     A,R7
+0011 6024              JZ      ?C0053
+                                           ; SOURCE LINE # 1160
+0013         ?C0051:
+                                           ; SOURCE LINE # 1161
+0013 900000      R     MOV     DPTR,#byteCount
+0016 E0                MOVX    A,@DPTR
+0017 FF                MOV     R7,A
+0018 EF                MOV     A,R7
+0019 D3                SETB    C
+001A 9400              SUBB    A,#00H
+001C 4019              JC      ?C0053
+                                           ; SOURCE LINE # 1162
+                                           ; SOURCE LINE # 1163
+001E 900000      R     MOV     DPTR,#string
+0021 E4                CLR     A
+0022 75F001            MOV     B,#01H
+0025 120000      E     LCALL   ?C?PLDIXDATA
+0028 120000      E     LCALL   ?C?CLDPTR
+002B FF                MOV     R7,A
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 41  
+
+002C 120000      R     LCALL   _uart_pc_PutChar
+                                           ; SOURCE LINE # 1164
+002F 900000      R     MOV     DPTR,#byteCount
+0032 E0                MOVX    A,@DPTR
+0033 14                DEC     A
+0034 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1165
+0035 80DC              SJMP    ?C0051
+                                           ; SOURCE LINE # 1166
+                                           ; SOURCE LINE # 1167
+0037         ?C0053:
+0037 22                RET     
+             ; FUNCTION _uart_pc_PutArray (END)
+
+             ; FUNCTION _uart_pc_PutCRLF (BEGIN)
+                                           ; SOURCE LINE # 1191
+0000 900000      R     MOV     DPTR,#txDataByte
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1192
+                                           ; SOURCE LINE # 1194
+0005 900000      R     MOV     DPTR,#uart_pc_initVar
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A EF                MOV     A,R7
+000B 6012              JZ      ?C0055
+                                           ; SOURCE LINE # 1195
+                                           ; SOURCE LINE # 1196
+000D 900000      R     MOV     DPTR,#txDataByte
+0010 E0                MOVX    A,@DPTR
+0011 FF                MOV     R7,A
+0012 120000      R     LCALL   _uart_pc_PutChar
+                                           ; SOURCE LINE # 1197
+0015 7F0D              MOV     R7,#0DH
+0017 120000      R     LCALL   _uart_pc_PutChar
+                                           ; SOURCE LINE # 1198
+001A 7F0A              MOV     R7,#0AH
+001C 120000      R     LCALL   _uart_pc_PutChar
+                                           ; SOURCE LINE # 1199
+                                           ; SOURCE LINE # 1200
+001F         ?C0055:
+001F 22                RET     
+             ; FUNCTION _uart_pc_PutCRLF (END)
+
+             ; FUNCTION uart_pc_GetTxBufferSize (BEGIN)
+                                           ; SOURCE LINE # 1228
+                                           ; SOURCE LINE # 1229
+                                           ; SOURCE LINE # 1260
+0000 906466            MOV     DPTR,#06466H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 900000      R     MOV     DPTR,#size
+0008 EF                MOV     A,R7
+0009 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1263
+000A 900000      R     MOV     DPTR,#size
+000D E0                MOVX    A,@DPTR
+000E FF                MOV     R7,A
+000F EF                MOV     A,R7
+0010 30E208            JNB     ACC.2,?C0056
+                                           ; SOURCE LINE # 1264
+                                           ; SOURCE LINE # 1265
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 42  
+
+0013 900000      R     MOV     DPTR,#size
+0016 7404              MOV     A,#04H
+0018 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1266
+0019 8016              SJMP    ?C0057
+001B         ?C0056:
+                                           ; SOURCE LINE # 1267
+001B 900000      R     MOV     DPTR,#size
+001E E0                MOVX    A,@DPTR
+001F FF                MOV     R7,A
+0020 EF                MOV     A,R7
+0021 30E107            JNB     ACC.1,?C0058
+                                           ; SOURCE LINE # 1268
+                                           ; SOURCE LINE # 1269
+0024 900000      R     MOV     DPTR,#size
+0027 E4                CLR     A
+0028 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1270
+0029 8006              SJMP    ?C0057
+002B         ?C0058:
+                                           ; SOURCE LINE # 1272
+                                           ; SOURCE LINE # 1274
+002B 900000      R     MOV     DPTR,#size
+002E 7401              MOV     A,#01H
+0030 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1275
+0031         ?C0057:
+                                           ; SOURCE LINE # 1279
+0031 900000      R     MOV     DPTR,#size
+0034 E0                MOVX    A,@DPTR
+0035 FF                MOV     R7,A
+                                           ; SOURCE LINE # 1280
+0036         ?C0060:
+0036 22                RET     
+             ; FUNCTION uart_pc_GetTxBufferSize (END)
+
+             ; FUNCTION uart_pc_ClearTxBuffer (BEGIN)
+                                           ; SOURCE LINE # 1312
+                                           ; SOURCE LINE # 1313
+                                           ; SOURCE LINE # 1331
+0000 22                RET     
+             ; FUNCTION uart_pc_ClearTxBuffer (END)
+
+             ; FUNCTION _uart_pc_SendBreak (BEGIN)
+                                           ; SOURCE LINE # 1391
+0000 900000      R     MOV     DPTR,#retMode
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1392
+                                           ; SOURCE LINE # 1395
+0005 900000      R     MOV     DPTR,#uart_pc_initVar
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A EF                MOV     A,R7
+000B 7003              JNZ     $ + 5H
+000D 020000      R     LJMP    ?C0077
+                                           ; SOURCE LINE # 1396
+                                           ; SOURCE LINE # 1439
+0010 900000      R     MOV     DPTR,#retMode
+0013 E0                MOVX    A,@DPTR
+0014 FF                MOV     R7,A
+0015 EF                MOV     A,R7
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 43  
+
+0016 600A              JZ      ?C0065
+0018 900000      R     MOV     DPTR,#retMode
+001B E0                MOVX    A,@DPTR
+001C FF                MOV     R7,A
+001D EF                MOV     A,R7
+001E 6403              XRL     A,#03H
+0020 7028              JNZ     ?C0063
+                                           ; SOURCE LINE # 1441
+                                           ; SOURCE LINE # 1443
+                                           ; SOURCE LINE # 1445
+                                           ; SOURCE LINE # 1446
+                                           ; SOURCE LINE # 1448
+0022         ?C0065:
+                                           ; SOURCE LINE # 1451
+0022 906536            MOV     DPTR,#06536H
+0025 E0                MOVX    A,@DPTR
+0026 FF                MOV     R7,A
+0027 900000      R     MOV     DPTR,#tx_period
+002A EF                MOV     A,R7
+002B F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1452
+002C 906536            MOV     DPTR,#06536H
+002F 7467              MOV     A,#067H
+0031 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1459
+0032 906446            MOV     DPTR,#06446H
+0035 E4                CLR     A
+0036 F0                MOVX    @DPTR,A
+0037         ?C0068:
+                                           ; SOURCE LINE # 1462
+                                           ; SOURCE LINE # 1463
+0037 906466            MOV     DPTR,#06466H
+003A E0                MOVX    A,@DPTR
+003B FF                MOV     R7,A
+003C 900000      R     MOV     DPTR,#tmpStat
+003F EF                MOV     A,R7
+0040 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1464
+0041 900000      R     MOV     DPTR,#tmpStat
+0044 E0                MOVX    A,@DPTR
+0045 FF                MOV     R7,A
+0046 EF                MOV     A,R7
+0047 20E1ED            JB      ACC.1,?C0068
+                                           ; SOURCE LINE # 1465
+004A         ?C0063:
+                                           ; SOURCE LINE # 1467
+004A 900000      R     MOV     DPTR,#retMode
+004D E0                MOVX    A,@DPTR
+004E FF                MOV     R7,A
+004F EF                MOV     A,R7
+0050 6401              XRL     A,#01H
+0052 6009              JZ      ?C0073
+0054 900000      R     MOV     DPTR,#retMode
+0057 E0                MOVX    A,@DPTR
+0058 FF                MOV     R7,A
+0059 EF                MOV     A,R7
+005A B40318            CJNE    A,#03H,?C0069
+                                           ; SOURCE LINE # 1469
+005D         ?C0073:
+                                           ; SOURCE LINE # 1471
+                                           ; SOURCE LINE # 1472
+005D 906466            MOV     DPTR,#06466H
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 44  
+
+0060 E0                MOVX    A,@DPTR
+0061 FF                MOV     R7,A
+0062 900000      R     MOV     DPTR,#tmpStat
+0065 EF                MOV     A,R7
+0066 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1473
+0067 900000      R     MOV     DPTR,#tmpStat
+006A E0                MOVX    A,@DPTR
+006B FF                MOV     R7,A
+006C EF                MOV     A,R7
+006D F4                CPL     A
+006E FF                MOV     R7,A
+006F 7E00              MOV     R6,#00H
+0071 EF                MOV     A,R7
+0072 20E0E8            JB      ACC.0,?C0073
+                                           ; SOURCE LINE # 1474
+0075         ?C0069:
+                                           ; SOURCE LINE # 1476
+0075 900000      R     MOV     DPTR,#retMode
+0078 E0                MOVX    A,@DPTR
+0079 FF                MOV     R7,A
+007A EF                MOV     A,R7
+007B 6401              XRL     A,#01H
+007D 6013              JZ      ?C0075
+007F 900000      R     MOV     DPTR,#retMode
+0082 E0                MOVX    A,@DPTR
+0083 FF                MOV     R7,A
+0084 EF                MOV     A,R7
+0085 6402              XRL     A,#02H
+0087 6009              JZ      ?C0075
+0089 900000      R     MOV     DPTR,#retMode
+008C E0                MOVX    A,@DPTR
+008D FF                MOV     R7,A
+008E EF                MOV     A,R7
+008F B4030A            CJNE    A,#03H,?C0077
+0092         ?C0075:
+                                           ; SOURCE LINE # 1479
+                                           ; SOURCE LINE # 1482
+0092 900000      R     MOV     DPTR,#tx_period
+0095 E0                MOVX    A,@DPTR
+0096 FF                MOV     R7,A
+0097 906536            MOV     DPTR,#06536H
+009A EF                MOV     A,R7
+009B F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1487
+                                           ; SOURCE LINE # 1489
+                                           ; SOURCE LINE # 1490
+                                           ; SOURCE LINE # 1492
+                                           ; SOURCE LINE # 1493
+                                           ; SOURCE LINE # 1495
+                                           ; SOURCE LINE # 1496
+009C         ?C0077:
+009C 22                RET     
+             ; FUNCTION _uart_pc_SendBreak (END)
+
+             ; FUNCTION _uart_pc_SetTxAddressMode (BEGIN)
+                                           ; SOURCE LINE # 1514
+0000 900000      R     MOV     DPTR,#addressMode
+0003 EF                MOV     A,R7
+0004 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 1515
+                                           ; SOURCE LINE # 1517
+C51 COMPILER V9.03   UART_PC                                                               05/13/2012 22:25:53 PAGE 45  
+
+0005 900000      R     MOV     DPTR,#addressMode
+0008 E0                MOVX    A,@DPTR
+0009 FF                MOV     R7,A
+000A EF                MOV     A,R7
+000B 600B              JZ      ?C0078
+                                           ; SOURCE LINE # 1518
+                                           ; SOURCE LINE # 1519
+000D 120000      R     LCALL   uart_pc_ReadControlRegister
+0010 EF                MOV     A,R7
+0011 4404              ORL     A,#04H
+0013 FF                MOV     R7,A
+0014 120000      R     LCALL   _uart_pc_WriteControlRegister
+                                           ; SOURCE LINE # 1520
+0017 22                RET     
+0018         ?C0078:
+                                           ; SOURCE LINE # 1522
+                                           ; SOURCE LINE # 1523
+0018 120000      R     LCALL   uart_pc_ReadControlRegister
+001B EF                MOV     A,R7
+001C 54FB              ANL     A,#0FBH
+001E FF                MOV     R7,A
+001F 120000      R     LCALL   _uart_pc_WriteControlRegister
+                                           ; SOURCE LINE # 1524
+                                           ; SOURCE LINE # 1525
+0022         ?C0080:
+0022 22                RET     
+             ; FUNCTION _uart_pc_SetTxAddressMode (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1226    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     56      27
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

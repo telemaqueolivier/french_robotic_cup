@@ -1,0 +1,355 @@
+C51 COMPILER V9.03   UART_PC_PM                                                            05/13/2012 22:25:53 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE UART_PC_PM
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\uart_pc_PM.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\Gene
+                    -rated_Source\PSoC3\uart_pc_PM.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\uart_pc_PM.lst) CD DB NOI
+                    -P OT(2,SIZE) INCDIR(Generated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\uart_pc_PM.obj)
+
+line level    source
+
+   1          /*******************************************************************************
+   2          * File Name: uart_pc.c
+   3          * Version 2.0
+   4          *
+   5          * Description:
+   6          *  This file provides Sleep/WakeUp APIs functionality.
+   7          *
+   8          * Note:
+   9          *
+  10          *******************************************************************************
+  11          * Copyright 2008-2010, Cypress Semiconductor Corporation.  All rights reserved.
+  12          * You may use this file only in accordance with the license, terms, conditions,
+  13          * disclaimers, and limitations in the end user license agreement accompanying
+  14          * the software package with which this file was provided.
+  15          ********************************************************************************/
+  16          
+  17          #include "uart_pc.h"
+  18          
+  19          
+  20          /***************************************
+  21          * Local data allocation
+  22          ***************************************/
+  23          
+  24          static uart_pc_BACKUP_STRUCT  uart_pc_backup =
+  25          {
+  26              /* enableState - disabled */
+  27              0u,
+  28          };        
+  29          
+  30          
+  31          
+  32          /*******************************************************************************
+  33          * Function Name: uart_pc_SaveConfig
+  34          ********************************************************************************
+  35          *
+  36          * Summary:
+  37          *  Saves the current user configuration.
+  38          *
+  39          * Parameters:
+  40          *  None.
+  41          *
+  42          * Return:
+  43          *  None.
+  44          *
+  45          * Global Variables:
+  46          *  uart_pc_backup - modified when non-retention registers are saved.
+  47          *
+  48          * Reentrant:
+  49          *  No.
+  50          *
+  51          *******************************************************************************/
+  52          void uart_pc_SaveConfig(void)
+  53          {
+C51 COMPILER V9.03   UART_PC_PM                                                            05/13/2012 22:25:53 PAGE 2   
+
+  54   1          /* PSoC3 ES2 or early, PSoC5 ES1*/
+  55   1          #if (uart_pc_PSOC3_ES2 || uart_pc_PSOC5_ES1)
+              
+                      #if(uart_pc_CONTROL_REG_REMOVED == 0u)
+                          uart_pc_backup.cr = uart_pc_CONTROL_REG;
+                      #endif /* End uart_pc_CONTROL_REG_REMOVED */
+              
+                      #if( (uart_pc_RX_ENABLED) || (uart_pc_HD_ENABLED) )
+                          uart_pc_backup.rx_period = uart_pc_RXBITCTR_PERIOD_REG;
+                          uart_pc_backup.rx_mask = uart_pc_RXSTATUS_MASK_REG;
+                          #if (uart_pc_RXHW_ADDRESS_ENABLED)
+                              uart_pc_backup.rx_addr1 = uart_pc_RXADDRESS1_REG;
+                              uart_pc_backup.rx_addr2 = uart_pc_RXADDRESS2_REG;
+                          #endif /* End uart_pc_RXHW_ADDRESS_ENABLED */
+                      #endif /* End uart_pc_RX_ENABLED | uart_pc_HD_ENABLED*/
+              
+                      #if(uart_pc_TX_ENABLED)
+                          #if(uart_pc_TXCLKGEN_DP)
+                              uart_pc_backup.tx_clk_ctr = uart_pc_TXBITCLKGEN_CTR_REG;
+                              uart_pc_backup.tx_clk_compl = uart_pc_TXBITCLKTX_COMPLETE_REG;
+                          #else
+                              uart_pc_backup.tx_period = uart_pc_TXBITCTR_PERIOD_REG;
+                          #endif /*End uart_pc_TXCLKGEN_DP */
+                          uart_pc_backup.tx_mask = uart_pc_TXSTATUS_MASK_REG;
+                      #endif /*End uart_pc_TX_ENABLED */
+              
+                  /* PSoC3 ES3 or later, PSoC5 ES2 or later*/
+                  #elif (uart_pc_PSOC3_ES3 || uart_pc_PSOC5_ES2)
+  82   1      
+  83   1              #if(uart_pc_CONTROL_REG_REMOVED == 0u)
+                          uart_pc_backup.cr = uart_pc_CONTROL_REG;
+                      #endif /* End uart_pc_CONTROL_REG_REMOVED */
+  86   1      
+  87   1          #endif  /* End PSOC3_ES3 || PSOC5_ES2 */
+  88   1      }
+  89          
+  90          
+  91          /*******************************************************************************
+  92          * Function Name: uart_pc_RestoreConfig
+  93          ********************************************************************************
+  94          *
+  95          * Summary:
+  96          *  Restores the current user configuration.
+  97          *
+  98          * Parameters:
+  99          *  None.
+ 100          *
+ 101          * Return:
+ 102          *  None.
+ 103          *
+ 104          * Global Variables:
+ 105          *  uart_pc_backup - used when non-retention registers are restored.
+ 106          *
+ 107          * Reentrant:
+ 108          *  No.
+ 109          *
+ 110          *******************************************************************************/
+ 111          void uart_pc_RestoreConfig(void)
+ 112          {
+ 113   1          /* PSoC3 ES2 or early, PSoC5 ES1*/
+ 114   1          #if (uart_pc_PSOC3_ES2 || uart_pc_PSOC5_ES1)
+              
+C51 COMPILER V9.03   UART_PC_PM                                                            05/13/2012 22:25:53 PAGE 3   
+
+                      #if(uart_pc_CONTROL_REG_REMOVED == 0u)
+                          uart_pc_CONTROL_REG = uart_pc_backup.cr;
+                      #endif /* End uart_pc_CONTROL_REG_REMOVED */
+              
+                      #if( (uart_pc_RX_ENABLED) || (uart_pc_HD_ENABLED) )
+                          uart_pc_RXBITCTR_PERIOD_REG = uart_pc_backup.rx_period;
+                          uart_pc_RXSTATUS_MASK_REG = uart_pc_backup.rx_mask;
+                          #if (uart_pc_RXHW_ADDRESS_ENABLED)
+                              uart_pc_RXADDRESS1_REG = uart_pc_backup.rx_addr1;
+                              uart_pc_RXADDRESS2_REG = uart_pc_backup.rx_addr2;
+                          #endif /* End uart_pc_RXHW_ADDRESS_ENABLED */
+                      #endif  /* End (uart_pc_RX_ENABLED) || (uart_pc_HD_ENABLED) */
+              
+                      #if(uart_pc_TX_ENABLED)
+                          #if(uart_pc_TXCLKGEN_DP)
+                              uart_pc_TXBITCLKGEN_CTR_REG = uart_pc_backup.tx_clk_ctr;
+                              uart_pc_TXBITCLKTX_COMPLETE_REG = uart_pc_backup.tx_clk_compl;
+                          #else
+                              uart_pc_TXBITCTR_PERIOD_REG = uart_pc_backup.tx_period;
+                          #endif /*End uart_pc_TXCLKGEN_DP */
+                          uart_pc_TXSTATUS_MASK_REG = uart_pc_backup.tx_mask;
+                      #endif /*End uart_pc_TX_ENABLED */
+              
+                  /* PSoC3 ES3 or later, PSoC5 ES2 or later*/
+                  #elif (uart_pc_PSOC3_ES3 || uart_pc_PSOC5_ES2)
+ 141   1      
+ 142   1              #if(uart_pc_CONTROL_REG_REMOVED == 0u)
+                          uart_pc_CONTROL_REG = uart_pc_backup.cr;
+                      #endif /* End uart_pc_CONTROL_REG_REMOVED */
+ 145   1      
+ 146   1          #endif  /* End PSOC3_ES3 || PSOC5_ES2 */
+ 147   1      }
+ 148          
+ 149          
+ 150          /*******************************************************************************
+ 151          * Function Name: uart_pc_Sleep
+ 152          ********************************************************************************
+ 153          *
+ 154          * Summary:
+ 155          *  Stops and saves the user configuration. Should be called 
+ 156          *  just prior to entering sleep.
+ 157          *  
+ 158          *
+ 159          * Parameters:
+ 160          *  None.
+ 161          *
+ 162          * Return:
+ 163          *  None.
+ 164          *
+ 165          * Global Variables:
+ 166          *  uart_pc_backup - modified when non-retention registers are saved.
+ 167          *
+ 168          * Reentrant:
+ 169          *  No.
+ 170          *
+ 171          *******************************************************************************/
+ 172          void uart_pc_Sleep(void)
+ 173          {
+ 174   1      
+ 175   1          #if(uart_pc_RX_ENABLED || uart_pc_HD_ENABLED)
+ 176   1              if((uart_pc_RXSTATUS_ACTL_REG  & uart_pc_INT_ENABLE) != 0u) 
+ 177   1              {
+C51 COMPILER V9.03   UART_PC_PM                                                            05/13/2012 22:25:53 PAGE 4   
+
+ 178   2                  uart_pc_backup.enableState = 1u;
+ 179   2              }
+ 180   1              else
+ 181   1              {
+ 182   2                  uart_pc_backup.enableState = 0u;
+ 183   2              }
+ 184   1          #else
+                      if((uart_pc_TXSTATUS_ACTL_REG  & uart_pc_INT_ENABLE) !=0u)
+                      {
+                          uart_pc_backup.enableState = 1u;
+                      }
+                      else
+                      {
+                          uart_pc_backup.enableState = 0u;
+                      }
+                  #endif /* End uart_pc_RX_ENABLED || uart_pc_HD_ENABLED*/
+ 194   1      
+ 195   1          uart_pc_Stop();
+ 196   1          uart_pc_SaveConfig();
+ 197   1      }
+ 198          
+ 199          
+ 200          /*******************************************************************************
+ 201          * Function Name: uart_pc_Wakeup
+ 202          ********************************************************************************
+ 203          *
+ 204          * Summary:
+ 205          *  Restores and enables the user configuration. Should be called
+ 206          *  just after awaking from sleep.
+ 207          *
+ 208          * Parameters:
+ 209          *  None.
+ 210          *
+ 211          * Return:
+ 212          *  None.
+ 213          *
+ 214          * Global Variables:
+ 215          *  uart_pc_backup - used when non-retention registers are restored.
+ 216          *
+ 217          * Reentrant:
+ 218          *  No.
+ 219          *
+ 220          *******************************************************************************/
+ 221          void uart_pc_Wakeup(void)
+ 222          {
+ 223   1          uart_pc_RestoreConfig();
+ 224   1          #if( (uart_pc_RX_ENABLED) || (uart_pc_HD_ENABLED) )
+ 225   1              uart_pc_ClearRxBuffer();
+ 226   1          #endif /* End (uart_pc_RX_ENABLED) || (uart_pc_HD_ENABLED) */
+ 227   1          #if(uart_pc_TX_ENABLED || uart_pc_HD_ENABLED)
+ 228   1              uart_pc_ClearTxBuffer();
+ 229   1          #endif /* End uart_pc_TX_ENABLED || uart_pc_HD_ENABLED */
+ 230   1      
+ 231   1          if(uart_pc_backup.enableState != 0u)
+ 232   1          {
+ 233   2              uart_pc_Enable();
+ 234   2          } 
+ 235   1      }
+ 236          
+ 237          
+ 238          /* [] END OF FILE */
+C51 COMPILER V9.03   UART_PC_PM                                                            05/13/2012 22:25:53 PAGE 5   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION uart_pc_SaveConfig (BEGIN)
+                                           ; SOURCE LINE # 52
+                                           ; SOURCE LINE # 53
+                                           ; SOURCE LINE # 88
+0000 22                RET     
+             ; FUNCTION uart_pc_SaveConfig (END)
+
+             ; FUNCTION uart_pc_RestoreConfig (BEGIN)
+                                           ; SOURCE LINE # 111
+                                           ; SOURCE LINE # 112
+                                           ; SOURCE LINE # 147
+0000 22                RET     
+             ; FUNCTION uart_pc_RestoreConfig (END)
+
+             ; FUNCTION uart_pc_Sleep (BEGIN)
+                                           ; SOURCE LINE # 172
+                                           ; SOURCE LINE # 173
+                                           ; SOURCE LINE # 176
+0000 906495            MOV     DPTR,#06495H
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 5410              ANL     A,#010H
+0008 FF                MOV     R7,A
+0009 7E00              MOV     R6,#00H
+000B EF                MOV     A,R7
+000C 4E                ORL     A,R6
+000D 6008              JZ      ?C0003
+                                           ; SOURCE LINE # 177
+                                           ; SOURCE LINE # 178
+000F 900000      R     MOV     DPTR,#uart_pc_backup
+0012 7401              MOV     A,#01H
+0014 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 179
+0015 8005              SJMP    ?C0004
+0017         ?C0003:
+                                           ; SOURCE LINE # 181
+                                           ; SOURCE LINE # 182
+0017 900000      R     MOV     DPTR,#uart_pc_backup
+001A E4                CLR     A
+001B F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 183
+001C         ?C0004:
+                                           ; SOURCE LINE # 195
+001C 120000      E     LCALL   uart_pc_Stop
+                                           ; SOURCE LINE # 196
+001F 120000      R     LCALL   uart_pc_SaveConfig
+                                           ; SOURCE LINE # 197
+0022 22                RET     
+             ; FUNCTION uart_pc_Sleep (END)
+
+             ; FUNCTION uart_pc_Wakeup (BEGIN)
+                                           ; SOURCE LINE # 221
+                                           ; SOURCE LINE # 222
+                                           ; SOURCE LINE # 223
+0000 120000      R     LCALL   uart_pc_RestoreConfig
+                                           ; SOURCE LINE # 225
+0003 120000      E     LCALL   uart_pc_ClearRxBuffer
+                                           ; SOURCE LINE # 228
+C51 COMPILER V9.03   UART_PC_PM                                                            05/13/2012 22:25:53 PAGE 6   
+
+0006 120000      E     LCALL   uart_pc_ClearTxBuffer
+                                           ; SOURCE LINE # 231
+0009 900000      R     MOV     DPTR,#uart_pc_backup
+000C E0                MOVX    A,@DPTR
+000D FF                MOV     R7,A
+000E EF                MOV     A,R7
+000F 6003              JZ      ?C0007
+                                           ; SOURCE LINE # 232
+                                           ; SOURCE LINE # 233
+0011 120000      E     LCALL   uart_pc_Enable
+                                           ; SOURCE LINE # 234
+                                           ; SOURCE LINE # 235
+0014         ?C0007:
+0014 22                RET     
+             ; FUNCTION uart_pc_Wakeup (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     58    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      3    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

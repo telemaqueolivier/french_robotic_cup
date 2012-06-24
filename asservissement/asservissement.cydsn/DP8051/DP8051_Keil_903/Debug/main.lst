@@ -1,0 +1,663 @@
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\main.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\main
+                    -.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\main.lst) CD DB NOIP OT(2,SIZE) INCDIR(Generated_Sourc
+                    -e\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\main.obj)
+
+line level    source
+
+   1          #include <device.h>
+   2          #include <isr_positionning.h>
+   3          #include <timer_asserv.h>
+   4          #include "uart_base.h"
+   5          #include "trajectory.h"
+   6          #include "global_variable.h"
+   7          
+   8          void main(void)
+   9          {       
+  10   1              struct uart uart_pc;
+  11   1          /* Place your initialization/startup code here (e.g. MyInst_Start()) */     
+  12   1          CYGlobalIntEnable; /* Uncomment this line to enable global interrupts. */
+  13   1              
+  14   1              color_sign = RED;
+  15   1              timer_asserv_Start();
+  16   1              isr_positionning_Start();
+  17   1              
+  18   1              uart_init(&uart_pc, 16, &uart_pc_Start, &uart_pc_Stop, &uart_pc_GetChar, &uart_pc_ClearRxBuffer, &uart_pc
+             -_ClearTxBuffer, &uart_pc_PutString, &uart_pc_PutStringConst);
+  19   1              uart_set_command(&uart_pc, 0, "value", &quad_dec_value);
+  20   1          uart_set_command(&uart_pc, 1, "readxy", &read_xy);
+  21   1              uart_set_command(&uart_pc, 2, "exec", &time_exec_counter);
+  22   1              uart_set_command(&uart_pc, 3, "reset", &reset);
+  23   1              uart_set_command(&uart_pc, 4, "asserv", &set_consigne_asserv);
+  24   1              uart_set_command(&uart_pc, 5, "setcoeff", &set_PID);
+  25   1              uart_set_command(&uart_pc, 6, "pwmr", &pwmR);
+  26   1              uart_set_command(&uart_pc, 7, "pwml", &pwmL);
+  27   1              uart_set_command(&uart_pc, 8, "demuxr", &demuxR);
+  28   1              uart_set_command(&uart_pc, 9, "demuxl", &demuxL);
+  29   1              uart_set_command(&uart_pc, 10, "stop", &stop);
+  30   1              uart_set_command(&uart_pc, 11, "gotoxy", &gotoxy);
+  31   1              uart_set_command(&uart_pc, 12, "gotoa", &gotoa);
+  32   1              uart_set_command(&uart_pc, 13, "gotod", &gotod);
+  33   1              uart_set_command(&uart_pc, 14, "resetcoeff", &resetCoef);
+  34   1              uart_set_command(&uart_pc, 15, "setxy", &set_multiple_xy); 
+  35   1              
+  36   1              uart_pc.put_string_const("Asserv\n\r>");
+  37   1      
+  38   1              trajectory_init(&rsT);
+  39   1              pid_set_gains(&rsT.csm_angle.correct_filter_params, PIDA_P, PIDA_I, PIDA_D);
+  40   1              pid_set_out_shift(&rsT.csm_angle.correct_filter_params, PIDA_SH);
+  41   1              pid_set_gains(&rsT.csm_distance.correct_filter_params, PIDD_P, PIDD_I, PIDD_D);
+  42   1              pid_set_out_shift(&rsT.csm_distance.correct_filter_params, PIDD_SH);
+  43   1              
+  44   1              while(1)
+  45   1          {
+  46   2              uart_check(&uart_pc);
+  47   2                      
+  48   2                      if(rsT.t == TIME_ASSERV)
+  49   2                      {
+  50   3                              rsT.t = TIME_IDLE;
+  51   3                              ++rsT.time;
+  52   3      
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 2   
+
+  53   3                              trajectory_update(&rsT);
+  54   3                      }
+  55   2              }
+  56   1      }
+  57          /* [] END OF FILE */
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 3   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION main (BEGIN)
+                                           ; SOURCE LINE # 8
+                                           ; SOURCE LINE # 9
+                                           ; SOURCE LINE # 10
+                                           ; SOURCE LINE # 12
+0000 D2AF              SETB    EA
+0002 9044F4            MOV     DPTR,#044F4H
+0005 E0                MOVX    A,@DPTR
+0006 FF                MOV     R7,A
+0007 EF                MOV     A,R7
+0008 54FD              ANL     A,#0FDH
+000A FF                MOV     R7,A
+000B EF                MOV     A,R7
+000C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 14
+000D 900000      E     MOV     DPTR,#color_sign
+0010 7401              MOV     A,#01H
+0012 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 15
+0013 120000      E     LCALL   timer_asserv_Start
+                                           ; SOURCE LINE # 16
+0016 120000      E     LCALL   isr_positionning_Start
+                                           ; SOURCE LINE # 18
+0019 7B01              MOV     R3,#01H
+001B 7A00        R     MOV     R2,#HIGH uart_pc
+001D 7900        R     MOV     R1,#LOW uart_pc
+001F C003              PUSH    AR3
+0021 C002              PUSH    AR2
+0023 C001              PUSH    AR1
+0025 7BFF              MOV     R3,#0FFH
+0027 7A00        E     MOV     R2,#HIGH uart_pc_Start
+0029 7900        E     MOV     R1,#LOW uart_pc_Start
+002B 900000      E     MOV     DPTR,#?_uart_init?BYTE+04H
+002E 120000      E     LCALL   ?C?PSTXDATA
+0031 7BFF              MOV     R3,#0FFH
+0033 7A00        E     MOV     R2,#HIGH uart_pc_Stop
+0035 7900        E     MOV     R1,#LOW uart_pc_Stop
+0037 900000      E     MOV     DPTR,#?_uart_init?BYTE+07H
+003A 120000      E     LCALL   ?C?PSTXDATA
+003D 7BFF              MOV     R3,#0FFH
+003F 7A00        E     MOV     R2,#HIGH uart_pc_GetChar
+0041 7900        E     MOV     R1,#LOW uart_pc_GetChar
+0043 900000      E     MOV     DPTR,#?_uart_init?BYTE+0AH
+0046 120000      E     LCALL   ?C?PSTXDATA
+0049 7BFF              MOV     R3,#0FFH
+004B 7A00        E     MOV     R2,#HIGH uart_pc_ClearRxBuffer
+004D 7900        E     MOV     R1,#LOW uart_pc_ClearRxBuffer
+004F 900000      E     MOV     DPTR,#?_uart_init?BYTE+0DH
+0052 120000      E     LCALL   ?C?PSTXDATA
+0055 7BFF              MOV     R3,#0FFH
+0057 7A00        E     MOV     R2,#HIGH uart_pc_ClearTxBuffer
+0059 7900        E     MOV     R1,#LOW uart_pc_ClearTxBuffer
+005B 900000      E     MOV     DPTR,#?_uart_init?BYTE+010H
+005E 120000      E     LCALL   ?C?PSTXDATA
+0061 7BFF              MOV     R3,#0FFH
+0063 7A00        E     MOV     R2,#HIGH _uart_pc_PutString
+0065 7900        E     MOV     R1,#LOW _uart_pc_PutString
+0067 900000      E     MOV     DPTR,#?_uart_init?BYTE+013H
+006A 120000      E     LCALL   ?C?PSTXDATA
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 4   
+
+006D 7BFF              MOV     R3,#0FFH
+006F 7A00        E     MOV     R2,#HIGH _uart_pc_PutString
+0071 7900        E     MOV     R1,#LOW _uart_pc_PutString
+0073 900000      E     MOV     DPTR,#?_uart_init?BYTE+016H
+0076 120000      E     LCALL   ?C?PSTXDATA
+0079 D001              POP     AR1
+007B D002              POP     AR2
+007D D003              POP     AR3
+007F 7D10              MOV     R5,#010H
+0081 120000      E     LCALL   _uart_init
+                                           ; SOURCE LINE # 19
+0084 7B01              MOV     R3,#01H
+0086 7A00        R     MOV     R2,#HIGH uart_pc
+0088 7900        R     MOV     R1,#LOW uart_pc
+008A C003              PUSH    AR3
+008C C002              PUSH    AR2
+008E C001              PUSH    AR1
+0090 7BFF              MOV     R3,#0FFH
+0092 7A00        R     MOV     R2,#HIGH ?SC_0
+0094 7900        R     MOV     R1,#LOW ?SC_0
+0096 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+0099 120000      E     LCALL   ?C?PSTXDATA
+009C 7BFF              MOV     R3,#0FFH
+009E 7A00        E     MOV     R2,#HIGH _quad_dec_value
+00A0 7900        E     MOV     R1,#LOW _quad_dec_value
+00A2 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+00A5 120000      E     LCALL   ?C?PSTXDATA
+00A8 D001              POP     AR1
+00AA D002              POP     AR2
+00AC D003              POP     AR3
+00AE 7D00              MOV     R5,#00H
+00B0 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 20
+00B3 7B01              MOV     R3,#01H
+00B5 7A00        R     MOV     R2,#HIGH uart_pc
+00B7 7900        R     MOV     R1,#LOW uart_pc
+00B9 C003              PUSH    AR3
+00BB C002              PUSH    AR2
+00BD C001              PUSH    AR1
+00BF 7BFF              MOV     R3,#0FFH
+00C1 7A00        R     MOV     R2,#HIGH ?SC_6
+00C3 7900        R     MOV     R1,#LOW ?SC_6
+00C5 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+00C8 120000      E     LCALL   ?C?PSTXDATA
+00CB 7BFF              MOV     R3,#0FFH
+00CD 7A00        E     MOV     R2,#HIGH _read_xy
+00CF 7900        E     MOV     R1,#LOW _read_xy
+00D1 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+00D4 120000      E     LCALL   ?C?PSTXDATA
+00D7 D001              POP     AR1
+00D9 D002              POP     AR2
+00DB D003              POP     AR3
+00DD 7D01              MOV     R5,#01H
+00DF 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 21
+00E2 7B01              MOV     R3,#01H
+00E4 7A00        R     MOV     R2,#HIGH uart_pc
+00E6 7900        R     MOV     R1,#LOW uart_pc
+00E8 C003              PUSH    AR3
+00EA C002              PUSH    AR2
+00EC C001              PUSH    AR1
+00EE 7BFF              MOV     R3,#0FFH
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 5   
+
+00F0 7A00        R     MOV     R2,#HIGH ?SC_13
+00F2 7900        R     MOV     R1,#LOW ?SC_13
+00F4 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+00F7 120000      E     LCALL   ?C?PSTXDATA
+00FA 7BFF              MOV     R3,#0FFH
+00FC 7A00        E     MOV     R2,#HIGH _time_exec_counter
+00FE 7900        E     MOV     R1,#LOW _time_exec_counter
+0100 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+0103 120000      E     LCALL   ?C?PSTXDATA
+0106 D001              POP     AR1
+0108 D002              POP     AR2
+010A D003              POP     AR3
+010C 7D02              MOV     R5,#02H
+010E 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 22
+0111 7B01              MOV     R3,#01H
+0113 7A00        R     MOV     R2,#HIGH uart_pc
+0115 7900        R     MOV     R1,#LOW uart_pc
+0117 C003              PUSH    AR3
+0119 C002              PUSH    AR2
+011B C001              PUSH    AR1
+011D 7BFF              MOV     R3,#0FFH
+011F 7A00        R     MOV     R2,#HIGH ?SC_18
+0121 7900        R     MOV     R1,#LOW ?SC_18
+0123 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+0126 120000      E     LCALL   ?C?PSTXDATA
+0129 7BFF              MOV     R3,#0FFH
+012B 7A00        E     MOV     R2,#HIGH _reset
+012D 7900        E     MOV     R1,#LOW _reset
+012F 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+0132 120000      E     LCALL   ?C?PSTXDATA
+0135 D001              POP     AR1
+0137 D002              POP     AR2
+0139 D003              POP     AR3
+013B 7D03              MOV     R5,#03H
+013D 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 23
+0140 7B01              MOV     R3,#01H
+0142 7A00        R     MOV     R2,#HIGH uart_pc
+0144 7900        R     MOV     R1,#LOW uart_pc
+0146 C003              PUSH    AR3
+0148 C002              PUSH    AR2
+014A C001              PUSH    AR1
+014C 7BFF              MOV     R3,#0FFH
+014E 7A00        R     MOV     R2,#HIGH ?SC_24
+0150 7900        R     MOV     R1,#LOW ?SC_24
+0152 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+0155 120000      E     LCALL   ?C?PSTXDATA
+0158 7BFF              MOV     R3,#0FFH
+015A 7A00        E     MOV     R2,#HIGH _set_consigne_asserv
+015C 7900        E     MOV     R1,#LOW _set_consigne_asserv
+015E 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+0161 120000      E     LCALL   ?C?PSTXDATA
+0164 D001              POP     AR1
+0166 D002              POP     AR2
+0168 D003              POP     AR3
+016A 7D04              MOV     R5,#04H
+016C 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 24
+016F 7B01              MOV     R3,#01H
+0171 7A00        R     MOV     R2,#HIGH uart_pc
+0173 7900        R     MOV     R1,#LOW uart_pc
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 6   
+
+0175 C003              PUSH    AR3
+0177 C002              PUSH    AR2
+0179 C001              PUSH    AR1
+017B 7BFF              MOV     R3,#0FFH
+017D 7A00        R     MOV     R2,#HIGH ?SC_31
+017F 7900        R     MOV     R1,#LOW ?SC_31
+0181 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+0184 120000      E     LCALL   ?C?PSTXDATA
+0187 7BFF              MOV     R3,#0FFH
+0189 7A00        E     MOV     R2,#HIGH _set_PID
+018B 7900        E     MOV     R1,#LOW _set_PID
+018D 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+0190 120000      E     LCALL   ?C?PSTXDATA
+0193 D001              POP     AR1
+0195 D002              POP     AR2
+0197 D003              POP     AR3
+0199 7D05              MOV     R5,#05H
+019B 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 25
+019E 7B01              MOV     R3,#01H
+01A0 7A00        R     MOV     R2,#HIGH uart_pc
+01A2 7900        R     MOV     R1,#LOW uart_pc
+01A4 C003              PUSH    AR3
+01A6 C002              PUSH    AR2
+01A8 C001              PUSH    AR1
+01AA 7BFF              MOV     R3,#0FFH
+01AC 7A00        R     MOV     R2,#HIGH ?SC_40
+01AE 7900        R     MOV     R1,#LOW ?SC_40
+01B0 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+01B3 120000      E     LCALL   ?C?PSTXDATA
+01B6 7BFF              MOV     R3,#0FFH
+01B8 7A00        E     MOV     R2,#HIGH _pwmR
+01BA 7900        E     MOV     R1,#LOW _pwmR
+01BC 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+01BF 120000      E     LCALL   ?C?PSTXDATA
+01C2 D001              POP     AR1
+01C4 D002              POP     AR2
+01C6 D003              POP     AR3
+01C8 7D06              MOV     R5,#06H
+01CA 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 26
+01CD 7B01              MOV     R3,#01H
+01CF 7A00        R     MOV     R2,#HIGH uart_pc
+01D1 7900        R     MOV     R1,#LOW uart_pc
+01D3 C003              PUSH    AR3
+01D5 C002              PUSH    AR2
+01D7 C001              PUSH    AR1
+01D9 7BFF              MOV     R3,#0FFH
+01DB 7A00        R     MOV     R2,#HIGH ?SC_45
+01DD 7900        R     MOV     R1,#LOW ?SC_45
+01DF 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+01E2 120000      E     LCALL   ?C?PSTXDATA
+01E5 7BFF              MOV     R3,#0FFH
+01E7 7A00        E     MOV     R2,#HIGH _pwmL
+01E9 7900        E     MOV     R1,#LOW _pwmL
+01EB 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+01EE 120000      E     LCALL   ?C?PSTXDATA
+01F1 D001              POP     AR1
+01F3 D002              POP     AR2
+01F5 D003              POP     AR3
+01F7 7D07              MOV     R5,#07H
+01F9 120000      E     LCALL   _uart_set_command
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 7   
+
+                                           ; SOURCE LINE # 27
+01FC 7B01              MOV     R3,#01H
+01FE 7A00        R     MOV     R2,#HIGH uart_pc
+0200 7900        R     MOV     R1,#LOW uart_pc
+0202 C003              PUSH    AR3
+0204 C002              PUSH    AR2
+0206 C001              PUSH    AR1
+0208 7BFF              MOV     R3,#0FFH
+020A 7A00        R     MOV     R2,#HIGH ?SC_50
+020C 7900        R     MOV     R1,#LOW ?SC_50
+020E 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+0211 120000      E     LCALL   ?C?PSTXDATA
+0214 7BFF              MOV     R3,#0FFH
+0216 7A00        E     MOV     R2,#HIGH _demuxR
+0218 7900        E     MOV     R1,#LOW _demuxR
+021A 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+021D 120000      E     LCALL   ?C?PSTXDATA
+0220 D001              POP     AR1
+0222 D002              POP     AR2
+0224 D003              POP     AR3
+0226 7D08              MOV     R5,#08H
+0228 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 28
+022B 7B01              MOV     R3,#01H
+022D 7A00        R     MOV     R2,#HIGH uart_pc
+022F 7900        R     MOV     R1,#LOW uart_pc
+0231 C003              PUSH    AR3
+0233 C002              PUSH    AR2
+0235 C001              PUSH    AR1
+0237 7BFF              MOV     R3,#0FFH
+0239 7A00        R     MOV     R2,#HIGH ?SC_57
+023B 7900        R     MOV     R1,#LOW ?SC_57
+023D 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+0240 120000      E     LCALL   ?C?PSTXDATA
+0243 7BFF              MOV     R3,#0FFH
+0245 7A00        E     MOV     R2,#HIGH _demuxL
+0247 7900        E     MOV     R1,#LOW _demuxL
+0249 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+024C 120000      E     LCALL   ?C?PSTXDATA
+024F D001              POP     AR1
+0251 D002              POP     AR2
+0253 D003              POP     AR3
+0255 7D09              MOV     R5,#09H
+0257 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 29
+025A 7B01              MOV     R3,#01H
+025C 7A00        R     MOV     R2,#HIGH uart_pc
+025E 7900        R     MOV     R1,#LOW uart_pc
+0260 C003              PUSH    AR3
+0262 C002              PUSH    AR2
+0264 C001              PUSH    AR1
+0266 7BFF              MOV     R3,#0FFH
+0268 7A00        R     MOV     R2,#HIGH ?SC_64
+026A 7900        R     MOV     R1,#LOW ?SC_64
+026C 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+026F 120000      E     LCALL   ?C?PSTXDATA
+0272 7BFF              MOV     R3,#0FFH
+0274 7A00        E     MOV     R2,#HIGH _stop
+0276 7900        E     MOV     R1,#LOW _stop
+0278 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+027B 120000      E     LCALL   ?C?PSTXDATA
+027E D001              POP     AR1
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 8   
+
+0280 D002              POP     AR2
+0282 D003              POP     AR3
+0284 7D0A              MOV     R5,#0AH
+0286 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 30
+0289 7B01              MOV     R3,#01H
+028B 7A00        R     MOV     R2,#HIGH uart_pc
+028D 7900        R     MOV     R1,#LOW uart_pc
+028F C003              PUSH    AR3
+0291 C002              PUSH    AR2
+0293 C001              PUSH    AR1
+0295 7BFF              MOV     R3,#0FFH
+0297 7A00        R     MOV     R2,#HIGH ?SC_69
+0299 7900        R     MOV     R1,#LOW ?SC_69
+029B 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+029E 120000      E     LCALL   ?C?PSTXDATA
+02A1 7BFF              MOV     R3,#0FFH
+02A3 7A00        E     MOV     R2,#HIGH _gotoxy
+02A5 7900        E     MOV     R1,#LOW _gotoxy
+02A7 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+02AA 120000      E     LCALL   ?C?PSTXDATA
+02AD D001              POP     AR1
+02AF D002              POP     AR2
+02B1 D003              POP     AR3
+02B3 7D0B              MOV     R5,#0BH
+02B5 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 31
+02B8 7B01              MOV     R3,#01H
+02BA 7A00        R     MOV     R2,#HIGH uart_pc
+02BC 7900        R     MOV     R1,#LOW uart_pc
+02BE C003              PUSH    AR3
+02C0 C002              PUSH    AR2
+02C2 C001              PUSH    AR1
+02C4 7BFF              MOV     R3,#0FFH
+02C6 7A00        R     MOV     R2,#HIGH ?SC_76
+02C8 7900        R     MOV     R1,#LOW ?SC_76
+02CA 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+02CD 120000      E     LCALL   ?C?PSTXDATA
+02D0 7BFF              MOV     R3,#0FFH
+02D2 7A00        E     MOV     R2,#HIGH _gotoa
+02D4 7900        E     MOV     R1,#LOW _gotoa
+02D6 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+02D9 120000      E     LCALL   ?C?PSTXDATA
+02DC D001              POP     AR1
+02DE D002              POP     AR2
+02E0 D003              POP     AR3
+02E2 7D0C              MOV     R5,#0CH
+02E4 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 32
+02E7 7B01              MOV     R3,#01H
+02E9 7A00        R     MOV     R2,#HIGH uart_pc
+02EB 7900        R     MOV     R1,#LOW uart_pc
+02ED C003              PUSH    AR3
+02EF C002              PUSH    AR2
+02F1 C001              PUSH    AR1
+02F3 7BFF              MOV     R3,#0FFH
+02F5 7A00        R     MOV     R2,#HIGH ?SC_82
+02F7 7900        R     MOV     R1,#LOW ?SC_82
+02F9 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+02FC 120000      E     LCALL   ?C?PSTXDATA
+02FF 7BFF              MOV     R3,#0FFH
+0301 7A00        E     MOV     R2,#HIGH _gotod
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 9   
+
+0303 7900        E     MOV     R1,#LOW _gotod
+0305 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+0308 120000      E     LCALL   ?C?PSTXDATA
+030B D001              POP     AR1
+030D D002              POP     AR2
+030F D003              POP     AR3
+0311 7D0D              MOV     R5,#0DH
+0313 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 33
+0316 7B01              MOV     R3,#01H
+0318 7A00        R     MOV     R2,#HIGH uart_pc
+031A 7900        R     MOV     R1,#LOW uart_pc
+031C C003              PUSH    AR3
+031E C002              PUSH    AR2
+0320 C001              PUSH    AR1
+0322 7BFF              MOV     R3,#0FFH
+0324 7A00        R     MOV     R2,#HIGH ?SC_88
+0326 7900        R     MOV     R1,#LOW ?SC_88
+0328 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+032B 120000      E     LCALL   ?C?PSTXDATA
+032E 7BFF              MOV     R3,#0FFH
+0330 7A00        E     MOV     R2,#HIGH _resetCoef
+0332 7900        E     MOV     R1,#LOW _resetCoef
+0334 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+0337 120000      E     LCALL   ?C?PSTXDATA
+033A D001              POP     AR1
+033C D002              POP     AR2
+033E D003              POP     AR3
+0340 7D0E              MOV     R5,#0EH
+0342 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 34
+0345 7B01              MOV     R3,#01H
+0347 7A00        R     MOV     R2,#HIGH uart_pc
+0349 7900        R     MOV     R1,#LOW uart_pc
+034B C003              PUSH    AR3
+034D C002              PUSH    AR2
+034F C001              PUSH    AR1
+0351 7BFF              MOV     R3,#0FFH
+0353 7A00        R     MOV     R2,#HIGH ?SC_99
+0355 7900        R     MOV     R1,#LOW ?SC_99
+0357 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+04H
+035A 120000      E     LCALL   ?C?PSTXDATA
+035D 7BFF              MOV     R3,#0FFH
+035F 7A00        E     MOV     R2,#HIGH _set_multiple_xy
+0361 7900        E     MOV     R1,#LOW _set_multiple_xy
+0363 900000      E     MOV     DPTR,#?_uart_set_command?BYTE+07H
+0366 120000      E     LCALL   ?C?PSTXDATA
+0369 D001              POP     AR1
+036B D002              POP     AR2
+036D D003              POP     AR3
+036F 7D0F              MOV     R5,#0FH
+0371 120000      E     LCALL   _uart_set_command
+                                           ; SOURCE LINE # 36
+0374 7BFF              MOV     R3,#0FFH
+0376 7A00        R     MOV     R2,#HIGH ?SC_105
+0378 7900        R     MOV     R1,#LOW ?SC_105
+037A C003              PUSH    AR3
+037C C002              PUSH    AR2
+037E C001              PUSH    AR1
+0380 900000      R     MOV     DPTR,#uart_pc+04BH
+0383 120000      E     LCALL   ?C?PLDXDATA
+0386 8982              MOV     DPL,R1
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 10  
+
+0388 8A83              MOV     DPH,R2
+038A D001              POP     AR1
+038C D002              POP     AR2
+038E D003              POP     AR3
+0390 120000      E     LCALL   ?C?ICALL2
+                                           ; SOURCE LINE # 38
+0393 7B01              MOV     R3,#01H
+0395 7A00        E     MOV     R2,#HIGH rsT
+0397 7900        E     MOV     R1,#LOW rsT
+0399 120000      E     LCALL   _trajectory_init
+                                           ; SOURCE LINE # 39
+039C 7B01              MOV     R3,#01H
+039E 7A00        E     MOV     R2,#HIGH rsT+056H
+03A0 7900        E     MOV     R1,#LOW rsT+056H
+03A2 7FB8              MOV     R7,#0B8H
+03A4 7E0B              MOV     R6,#0BH
+03A6 7D00              MOV     R5,#00H
+03A8 7C00              MOV     R4,#00H
+03AA C004              PUSH    AR4
+03AC C005              PUSH    AR5
+03AE C006              PUSH    AR6
+03B0 C007              PUSH    AR7
+03B2 7F03              MOV     R7,#03H
+03B4 7E00              MOV     R6,#00H
+03B6 7D00              MOV     R5,#00H
+03B8 7C00              MOV     R4,#00H
+03BA 900000      E     MOV     DPTR,#?_pid_set_gains?BYTE+07H
+03BD 120000      E     LCALL   ?C?LSTXDATA
+03C0 7F58              MOV     R7,#058H
+03C2 7E1B              MOV     R6,#01BH
+03C4 7D00              MOV     R5,#00H
+03C6 7C00              MOV     R4,#00H
+03C8 900000      E     MOV     DPTR,#?_pid_set_gains?BYTE+0BH
+03CB 120000      E     LCALL   ?C?LSTXDATA
+03CE D007              POP     AR7
+03D0 D006              POP     AR6
+03D2 D005              POP     AR5
+03D4 D004              POP     AR4
+03D6 120000      E     LCALL   _pid_set_gains
+                                           ; SOURCE LINE # 40
+03D9 7B01              MOV     R3,#01H
+03DB 7A00        E     MOV     R2,#HIGH rsT+056H
+03DD 7900        E     MOV     R1,#LOW rsT+056H
+03DF 7D0A              MOV     R5,#0AH
+03E1 120000      E     LCALL   _pid_set_out_shift
+                                           ; SOURCE LINE # 41
+03E4 7B01              MOV     R3,#01H
+03E6 7A00        E     MOV     R2,#HIGH rsT+0B2H
+03E8 7900        E     MOV     R1,#LOW rsT+0B2H
+03EA 7FE8              MOV     R7,#0E8H
+03EC 7E03              MOV     R6,#03H
+03EE 7D00              MOV     R5,#00H
+03F0 7C00              MOV     R4,#00H
+03F2 C004              PUSH    AR4
+03F4 C005              PUSH    AR5
+03F6 C006              PUSH    AR6
+03F8 C007              PUSH    AR7
+03FA 7F03              MOV     R7,#03H
+03FC 7E00              MOV     R6,#00H
+03FE 7D00              MOV     R5,#00H
+0400 7C00              MOV     R4,#00H
+0402 900000      E     MOV     DPTR,#?_pid_set_gains?BYTE+07H
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 11  
+
+0405 120000      E     LCALL   ?C?LSTXDATA
+0408 7F88              MOV     R7,#088H
+040A 7E13              MOV     R6,#013H
+040C 7D00              MOV     R5,#00H
+040E 7C00              MOV     R4,#00H
+0410 900000      E     MOV     DPTR,#?_pid_set_gains?BYTE+0BH
+0413 120000      E     LCALL   ?C?LSTXDATA
+0416 D007              POP     AR7
+0418 D006              POP     AR6
+041A D005              POP     AR5
+041C D004              POP     AR4
+041E 120000      E     LCALL   _pid_set_gains
+                                           ; SOURCE LINE # 42
+0421 7B01              MOV     R3,#01H
+0423 7A00        E     MOV     R2,#HIGH rsT+0B2H
+0425 7900        E     MOV     R1,#LOW rsT+0B2H
+0427 7D0A              MOV     R5,#0AH
+0429 120000      E     LCALL   _pid_set_out_shift
+042C         ?C0001:
+                                           ; SOURCE LINE # 44
+                                           ; SOURCE LINE # 45
+                                           ; SOURCE LINE # 46
+042C 7B01              MOV     R3,#01H
+042E 7A00        R     MOV     R2,#HIGH uart_pc
+0430 7900        R     MOV     R1,#LOW uart_pc
+0432 120000      E     LCALL   _uart_check
+                                           ; SOURCE LINE # 48
+0435 900000      E     MOV     DPTR,#rsT+01H
+0438 E0                MOVX    A,@DPTR
+0439 FF                MOV     R7,A
+043A EF                MOV     A,R7
+043B B401EE            CJNE    A,#01H,?C0001
+                                           ; SOURCE LINE # 49
+                                           ; SOURCE LINE # 50
+043E 900000      E     MOV     DPTR,#rsT+01H
+0441 E4                CLR     A
+0442 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 51
+0443 900000      E     MOV     DPTR,#rsT+02H
+0446 120000      E     LCALL   ?C?LLDXDATA
+0449 7B01              MOV     R3,#01H
+044B 7A00              MOV     R2,#00H
+044D 7900              MOV     R1,#00H
+044F 7800              MOV     R0,#00H
+0451 120000      E     LCALL   ?C?LADD
+0454 900000      E     MOV     DPTR,#rsT+02H
+0457 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 53
+045A 7B01              MOV     R3,#01H
+045C 7A00        E     MOV     R2,#HIGH rsT
+045E 7900        E     MOV     R1,#LOW rsT
+0460 120000      E     LCALL   _trajectory_update
+                                           ; SOURCE LINE # 54
+                                           ; SOURCE LINE # 55
+0463 80C7              SJMP    ?C0001
+0465 22                RET     
+             ; FUNCTION main (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1126    ----
+C51 COMPILER V9.03   MAIN                                                                  05/13/2012 22:46:39 PAGE 12  
+
+   CONSTANT SIZE    =    115    ----
+   XDATA SIZE       =   ----      78
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

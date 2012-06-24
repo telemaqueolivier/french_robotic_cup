@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CyXmlSerializer>
+<!--This file is machine generated and read. It is not intended to be edited by hand.-->
+<!--Due to this, there is no schema for this file.-->
+<CyGuid_843a90a4-0c4b-4e44-991d-05e7fb117a21 type_name="CyDesigner.Common.ProjMgmt.Model.CyPrjMgmtWrkspcCustomData" version="4">
+<CyGuid_fdba8dfd-b15b-4469-9bbb-9e40c3e70997 type_name="CyDesigner.Common.Base.CyCustomData" version="2">
+<userData>
+<dataGuid v="1b906a0f-a7b6-4e4d-a428-82f98b53cb35">
+<CyGuid_1b906a0f-a7b6-4e4d-a428-82f98b53cb35 type_name="CyDesigner.Common.ProjMgmt.GUI.CyExplorerWindow+CyExplorerWindowState" version="3" SelectedTab="Source">
+<TreeKeys>
+<v>Source</v>
+<v>Components</v>
+<v>Output</v>
+</TreeKeys>
+<TreeStates>
+<CyGuid_2a325b3b-c96a-4e9f-b7a0-2c44ecb5f237 type_name="CyDesigner.Common.Base.Controls.CyTreeViewState" version="1" SelectedNodeId="asservissement\asservissement\Generated_Source\PSoC3\isr_positionning">
+<ExpandedNodeIds>
+<v>asservissement</v>
+<v>asservissement\asservissement</v>
+<v>asservissement\asservissement\TopDesign.cysch</v>
+<v>asservissement\asservissement\asservissement.cydwr</v>
+<v>asservissement\asservissement\Header Files</v>
+<v>asservissement\asservissement\Header Files\control_system_manager.h</v>
+<v>asservissement\asservissement\Header Files\device.h</v>
+<v>asservissement\asservissement\Header Files\distance.h</v>
+<v>asservissement\asservissement\Header Files\encoders.h</v>
+<v>asservissement\asservissement\Header Files\global_variable.h</v>
+<v>asservissement\asservissement\Header Files\options.h</v>
+<v>asservissement\asservissement\Header Files\pid.h</v>
+<v>asservissement\asservissement\Header Files\position.h</v>
+<v>asservissement\asservissement\Header Files\pwm.h</v>
+<v>asservissement\asservissement\Header Files\robot_system.h</v>
+<v>asservissement\asservissement\Header Files\speed_filter.h</v>
+<v>asservissement\asservissement\Header Files\trajectory.h</v>
+<v>asservissement\asservissement\Header Files\types.h</v>
+<v>asservissement\asservissement\Header Files\uart_base.h</v>
+<v>asservissement\asservissement\Source Files</v>
+<v>asservissement\asservissement\Source Files\control_system_manager.c</v>
+<v>asservissement\asservissement\Source Files\distance.c</v>
+<v>asservissement\asservissement\Source Files\encoders.c</v>
+<v>asservissement\asservissement\Source Files\global_variable.c</v>
+<v>asservissement\asservissement\Source Files\main.c</v>
+<v>asservissement\asservissement\Source Files\pid.c</v>
+<v>asservissement\asservissement\Source Files\position.c</v>
+<v>asservissement\asservissement\Source Files\pwm.c</v>
+<v>asservissement\asservissement\Source Files\robot_system.c</v>
+<v>asservissement\asservissement\Source Files\speed_filter.c</v>
+<v>asservissement\asservissement\Source Files\trajectory.c</v>
+<v>asservissement\asservissement\Source Files\uart_base.c</v>
+<v>asservissement\asservissement\Generated_Source</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\CyBootAsmKeil.a51</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\CyDmac.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\CyDmac.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\CyFlash.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\CyFlash.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\CyLib.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\CyLib.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\cymem.a51</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\cypins.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\cyPm.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\cyPm.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\CySpc.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\CySpc.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\cytypes.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\cyutils.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\KeilStart.a51</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\PSoC3_8051.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cy_boot\PSoC3_8051.inc</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_a</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_a\encoder_left_sig_a.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_a\encoder_left_sig_a.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_a\encoder_left_sig_a_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_b</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_b\encoder_left_sig_b.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_b\encoder_left_sig_b.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_b\encoder_left_sig_b_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_a</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_a\encoder_right_sig_a.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_a\encoder_right_sig_a.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_a\encoder_right_sig_a_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_b</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_b\encoder_right_sig_b.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_b\encoder_right_sig_b.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_b\encoder_right_sig_b_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\isr_positionning</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\isr_positionning\isr_positionning.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\isr_positionning\isr_positionning.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_backward</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_backward\mot_left_backward.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_backward\mot_left_backward.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_backward\mot_left_backward_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_forward</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_forward\mot_left_forward.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_forward\mot_left_forward.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_forward\mot_left_forward_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_backward</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_backward\mot_right_backward.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_backward\mot_right_backward.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_backward\mot_right_backward_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_forward</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_forward\mot_right_forward.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_forward\mot_right_forward.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_forward\mot_right_forward_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left\pwm_left.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left\pwm_left.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left\pwm_left_PM.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left_control_reg</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left_control_reg\pwm_left_control_reg.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left_control_reg\pwm_left_control_reg.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right\pwm_right.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right\pwm_right.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right\pwm_right_PM.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right_control_reg</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right_control_reg\pwm_right_control_reg.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right_control_reg\pwm_right_control_reg.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left\quaddec_left.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left\quaddec_left.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left\quaddec_left_INT.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left\quaddec_left_PM.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left_Cnt16</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left_Cnt16\quaddec_left_Cnt16.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left_Cnt16\quaddec_left_Cnt16.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left_Cnt16\quaddec_left_Cnt16_PM.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left_isr</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left_isr\quaddec_left_isr.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_left_isr\quaddec_left_isr.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right\quaddec_right.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right\quaddec_right.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right\quaddec_right_INT.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right\quaddec_right_PM.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right_Cnt16</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right_Cnt16\quaddec_right_Cnt16.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right_Cnt16\quaddec_right_Cnt16.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right_Cnt16\quaddec_right_Cnt16_PM.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right_isr</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right_isr\quaddec_right_isr.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\quaddec_right_isr\quaddec_right_isr.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\timer_asserv</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\timer_asserv\timer_asserv.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\timer_asserv\timer_asserv.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\timer_asserv\timer_asserv_PM.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\uart_pc</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\uart_pc\uart_pc.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\uart_pc\uart_pc.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\uart_pc\uart_pc_INT.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\uart_pc\uart_pc_PM.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cydevice.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cydevice_trm.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cydevicekeil.inc</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cydevicekeil_trm.inc</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cyfitter.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cyfitter_cfg.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cyfitter_cfg.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\cyfitterkeil.inc</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\project.h</v>
+</ExpandedNodeIds>
+<VisibleNodeIds>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_a</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_a\encoder_left_sig_a.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_a\encoder_left_sig_a.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_a\encoder_left_sig_a_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_b</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_b\encoder_left_sig_b.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_b\encoder_left_sig_b.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_left_sig_b\encoder_left_sig_b_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_a</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_a\encoder_right_sig_a.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_a\encoder_right_sig_a.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_a\encoder_right_sig_a_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_b</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_b\encoder_right_sig_b.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_b\encoder_right_sig_b.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\encoder_right_sig_b\encoder_right_sig_b_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\isr_positionning</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\isr_positionning\isr_positionning.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\isr_positionning\isr_positionning.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_backward</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_backward\mot_left_backward.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_backward\mot_left_backward.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_backward\mot_left_backward_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_forward</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_forward\mot_left_forward.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_forward\mot_left_forward.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_left_forward\mot_left_forward_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_backward</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_backward\mot_right_backward.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_backward\mot_right_backward.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_backward\mot_right_backward_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_forward</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_forward\mot_right_forward.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_forward\mot_right_forward.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\mot_right_forward\mot_right_forward_aliases.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left\pwm_left.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left\pwm_left.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left\pwm_left_PM.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left_control_reg</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left_control_reg\pwm_left_control_reg.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_left_control_reg\pwm_left_control_reg.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right\pwm_right.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right\pwm_right.h</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right\pwm_right_PM.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right_control_reg</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right_control_reg\pwm_right_control_reg.c</v>
+<v>asservissement\asservissement\Generated_Source\PSoC3\pwm_right_control_reg\pwm_right_control_reg.h</v>
+</VisibleNodeIds>
+</CyGuid_2a325b3b-c96a-4e9f-b7a0-2c44ecb5f237>
+<CyGuid_2a325b3b-c96a-4e9f-b7a0-2c44ecb5f237 type_name="CyDesigner.Common.Base.Controls.CyTreeViewState" version="1" SelectedNodeId="">
+<ExpandedNodeIds>
+<v>asservissement</v>
+<v>asservissement\asservissement</v>
+<v>asservissement\asservissement\TopDesign</v>
+<v>asservissement\asservissement\TopDesign\TopDesign.cysch</v>
+</ExpandedNodeIds>
+<VisibleNodeIds>
+<v>asservissement</v>
+<v>asservissement\asservissement</v>
+<v>asservissement\asservissement\TopDesign</v>
+<v>asservissement\asservissement\TopDesign\TopDesign.cysch</v>
+</VisibleNodeIds>
+</CyGuid_2a325b3b-c96a-4e9f-b7a0-2c44ecb5f237>
+<CyGuid_2a325b3b-c96a-4e9f-b7a0-2c44ecb5f237 type_name="CyDesigner.Common.Base.Controls.CyTreeViewState" version="1" SelectedNodeId="">
+<ExpandedNodeIds>
+<v>asservissement</v>
+<v>asservissement\asservissement</v>
+<v>asservissement\asservissement\asservissement.cycdx</v>
+<v>asservissement\asservissement\asservissement.rpt</v>
+<v>asservissement\asservissement\asservissement_timing.html</v>
+<v>asservissement\asservissement\DP8051</v>
+<v>asservissement\asservissement\DP8051\DP8051_Keil_903</v>
+<v>asservissement\asservissement\DP8051\DP8051_Keil_903\Debug</v>
+<v>asservissement\asservissement\DP8051\DP8051_Keil_903\Debug\asservissement.hex</v>
+<v>asservissement\asservissement\DP8051\DP8051_Keil_903\Debug\asservissement.elf</v>
+<v>asservissement\asservissement\DP8051\DP8051_Keil_903\Debug\asservissement.map</v>
+</ExpandedNodeIds>
+<VisibleNodeIds>
+<v>asservissement</v>
+<v>asservissement\asservissement</v>
+<v>asservissement\asservissement\asservissement.cycdx</v>
+<v>asservissement\asservissement\asservissement.rpt</v>
+<v>asservissement\asservissement\asservissement_timing.html</v>
+<v>asservissement\asservissement\DP8051</v>
+<v>asservissement\asservissement\DP8051\DP8051_Keil_903</v>
+<v>asservissement\asservissement\DP8051\DP8051_Keil_903\Debug</v>
+<v>asservissement\asservissement\DP8051\DP8051_Keil_903\Debug\asservissement.hex</v>
+<v>asservissement\asservissement\DP8051\DP8051_Keil_903\Debug\asservissement.elf</v>
+<v>asservissement\asservissement\DP8051\DP8051_Keil_903\Debug\asservissement.map</v>
+</VisibleNodeIds>
+</CyGuid_2a325b3b-c96a-4e9f-b7a0-2c44ecb5f237>
+</TreeStates>
+</CyGuid_1b906a0f-a7b6-4e4d-a428-82f98b53cb35>
+</dataGuid>
+</userData>
+</CyGuid_fdba8dfd-b15b-4469-9bbb-9e40c3e70997>
+<Unloaded />
+<OpenDocs>
+<name v=".\asservissement.cydsn\robot_system.c" />
+<name v=".\asservissement.cydsn\robot_system.h" />
+<name v=".\asservissement.cydsn\global_variable.h" />
+<name v=".\asservissement.cydsn\global_variable.c" />
+<name v=".\asservissement.cydsn\control_system_manager.c" />
+<name v=".\asservissement.cydsn\control_system_manager.h" />
+<name v=".\asservissement.cydsn\main.c" />
+<name v=".\asservissement.cydsn\trajectory.c" />
+<name v=".\asservissement.cydsn\trajectory.h" />
+<name v=".\asservissement.cydsn\Generated_Source\PSoC3\isr_positionning.c" />
+<name v=".\asservissement.cydsn\uart_base.c" />
+<name v=".\asservissement.cydsn\position.h" />
+<name v=".\asservissement.cydsn\position.c" />
+<name v=".\asservissement.cydsn\encoders.c" />
+<name v=".\asservissement.cydsn\distance.h" />
+<name v=".\asservissement.cydsn\distance.c" />
+<name v=".\asservissement.cydsn\speed_filter.h" />
+<name v=".\asservissement.cydsn\options.h" />
+<name v=".\asservissement.cydsn\uart_base.h" />
+</OpenDocs>
+<config v="" />
+</CyGuid_843a90a4-0c4b-4e44-991d-05e7fb117a21>
+</CyXmlSerializer>

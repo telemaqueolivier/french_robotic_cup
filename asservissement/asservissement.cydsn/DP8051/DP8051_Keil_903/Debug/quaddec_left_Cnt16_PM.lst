@@ -1,0 +1,330 @@
+C51 COMPILER V9.03   QUADDEC_LEFT_CNT16_PM                                                 05/13/2012 22:25:56 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE QUADDEC_LEFT_CNT16_PM
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\quaddec_left_Cnt16_PM.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\Gene
+                    -rated_Source\PSoC3\quaddec_left_Cnt16_PM.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\quaddec_left_C
+                    -nt16_PM.lst) CD DB NOIP OT(2,SIZE) INCDIR(Generated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\quaddec_left_Cnt16_P
+                    -M.obj)
+
+line level    source
+
+   1          /*******************************************************************************
+   2          * File Name: quaddec_left_Cnt16_PM.c  
+   3          * Version 1.50
+   4          *
+   5          *  Description:
+   6          *     This file provides the power management source code to API for the
+   7          *     Counter.  
+   8          *
+   9          *   Note:
+  10          *     None
+  11          *
+  12          *******************************************************************************
+  13          * Copyright 2008-2010, Cypress Semiconductor Corporation.  All rights reserved.
+  14          * You may use this file only in accordance with the license, terms, conditions, 
+  15          * disclaimers, and limitations in the end user license agreement accompanying 
+  16          * the software package with which this file was provided.
+  17          ********************************************************************************/
+  18          
+  19          #include "quaddec_left_Cnt16.h"
+  20          
+  21          static quaddec_left_Cnt16_backupStruct quaddec_left_Cnt16_backup;
+  22          
+  23          
+  24          /*******************************************************************************
+  25          * Function Name: quaddec_left_Cnt16_SaveConfig
+  26          ********************************************************************************
+  27          * Summary:
+  28          *     Save the current user configuration
+  29          *
+  30          * Parameters:  
+  31          *  void
+  32          *
+  33          * Return: 
+  34          *  void
+  35          *
+  36          * Global variables:
+  37          *  quaddec_left_Cnt16_backup:  Variables of this global structure are modified to 
+  38          *  store the values of non retention configuration registers when Sleep() API is 
+  39          *  called.
+  40          *
+  41          * Reentrant:
+  42          *    No
+  43          *
+  44          *******************************************************************************/
+  45          void quaddec_left_Cnt16_SaveConfig(void)
+  46          {
+  47   1          #if (! quaddec_left_Cnt16_UsingFixedFunction)    
+  48   1              #if(!quaddec_left_Cnt16_ControlRegRemoved)
+  49   1                  quaddec_left_Cnt16_backup.control = quaddec_left_Cnt16_ReadControlRegister();
+  50   1              #endif
+  51   1              
+  52   1              quaddec_left_Cnt16_backup.counterUdb = quaddec_left_Cnt16_ReadCounter();
+C51 COMPILER V9.03   QUADDEC_LEFT_CNT16_PM                                                 05/13/2012 22:25:56 PAGE 2   
+
+  53   1              quaddec_left_Cnt16_backup.captureValue = quaddec_left_Cnt16_ReadCapture();
+  54   1          #endif
+  55   1      }
+  56          
+  57          
+  58          /*******************************************************************************
+  59          * Function Name: quaddec_left_Cnt16_RestoreConfig
+  60          ********************************************************************************
+  61          *
+  62          * Summary:
+  63          *  Restores the current user configuration.
+  64          *
+  65          * Parameters:  
+  66          *  void
+  67          *
+  68          * Return: 
+  69          *  void
+  70          *
+  71          * Global variables:
+  72          *  quaddec_left_Cnt16_backup:  Variables of this global structure are used to restore 
+  73          *  the values of non retention registers on wakeup from sleep mode.
+  74          *
+  75          * Reentrant:
+  76          *  Yes
+  77          *
+  78          *******************************************************************************/
+  79          void quaddec_left_Cnt16_RestoreConfig(void) 
+  80          {      
+  81   1          #if (! quaddec_left_Cnt16_UsingFixedFunction)     
+  82   1              #if(!quaddec_left_Cnt16_ControlRegRemoved)
+  83   1                  quaddec_left_Cnt16_WriteControlRegister(quaddec_left_Cnt16_backup.control);
+  84   1              #endif
+  85   1              
+  86   1              quaddec_left_Cnt16_WriteCounter(quaddec_left_Cnt16_backup.counterUdb);        
+  87   1              CY_SET_REG16 (quaddec_left_Cnt16_STATICCOUNT_LSB_PTR, quaddec_left_Cnt16_backup.captureValue);
+  88   1          #endif
+  89   1      }
+  90          
+  91          
+  92          /*******************************************************************************
+  93          * Function Name: quaddec_left_Cnt16_Sleep
+  94          ********************************************************************************
+  95          * Summary:
+  96          *     Stop and Save the user configuration
+  97          *
+  98          * Parameters:  
+  99          *  void
+ 100          *
+ 101          * Return: 
+ 102          *  void
+ 103          *
+ 104          * Global variables:
+ 105          *  quaddec_left_Cnt16_backup.enableState:  Is modified depending on the enable state
+ 106          *  of the block before entering sleep mode.
+ 107          *
+ 108          * Reentrant:
+ 109          *  No
+ 110          *
+ 111          *******************************************************************************/
+ 112          void quaddec_left_Cnt16_Sleep(void)
+ 113          {
+ 114   1          #if(!quaddec_left_Cnt16_ControlRegRemoved)
+C51 COMPILER V9.03   QUADDEC_LEFT_CNT16_PM                                                 05/13/2012 22:25:56 PAGE 3   
+
+ 115   1              /* Save Counter's enable state */
+ 116   1              if(quaddec_left_Cnt16_CTRL_ENABLE == (quaddec_left_Cnt16_CONTROL & quaddec_left_Cnt16_CTRL_ENABLE)
+             -)
+ 117   1              {
+ 118   2                  /* Counter is enabled */
+ 119   2                  quaddec_left_Cnt16_backup.enableState = 1u;
+ 120   2              }
+ 121   1              else
+ 122   1              {
+ 123   2                  /* Counter is disabled */
+ 124   2                  quaddec_left_Cnt16_backup.enableState = 0u;
+ 125   2              }
+ 126   1          #endif
+ 127   1          
+ 128   1          quaddec_left_Cnt16_Stop();
+ 129   1          quaddec_left_Cnt16_SaveConfig();
+ 130   1      }
+ 131          
+ 132          
+ 133          /*******************************************************************************
+ 134          * Function Name: quaddec_left_Cnt16_Wakeup
+ 135          ********************************************************************************
+ 136          *
+ 137          * Summary:
+ 138          *  Restores and enables the user configuration
+ 139          *  
+ 140          * Parameters:  
+ 141          *  void
+ 142          *
+ 143          * Return: 
+ 144          *  void
+ 145          *
+ 146          * Global variables:
+ 147          *  quaddec_left_Cnt16_backup.enableState:  Is used to restore the enable state of 
+ 148          *  block on wakeup from sleep mode.
+ 149          *
+ 150          * Reentrant:
+ 151          *  Yes
+ 152          *
+ 153          *******************************************************************************/
+ 154          void quaddec_left_Cnt16_Wakeup(void) 
+ 155          {
+ 156   1          quaddec_left_Cnt16_RestoreConfig();
+ 157   1          
+ 158   1          #if(!quaddec_left_Cnt16_ControlRegRemoved)
+ 159   1              if(quaddec_left_Cnt16_backup.enableState == 1u)
+ 160   1              {
+ 161   2                  /* Enable Counter's operation */
+ 162   2                  quaddec_left_Cnt16_Enable();
+ 163   2          
+ 164   2              } /* Do nothing if Counter was disabled before */    
+ 165   1          #endif
+ 166   1      }
+ 167          
+ 168          
+ 169          /* [] END OF FILE */
+C51 COMPILER V9.03   QUADDEC_LEFT_CNT16_PM                                                 05/13/2012 22:25:56 PAGE 4   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION quaddec_left_Cnt16_SaveConfig (BEGIN)
+                                           ; SOURCE LINE # 45
+                                           ; SOURCE LINE # 46
+                                           ; SOURCE LINE # 49
+0000 120000      E     LCALL   quaddec_left_Cnt16_ReadControlRegister
+0003 900000      R     MOV     DPTR,#quaddec_left_Cnt16_backup
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 52
+0008 120000      E     LCALL   quaddec_left_Cnt16_ReadCounter
+000B 900000      R     MOV     DPTR,#quaddec_left_Cnt16_backup+02H
+000E EE                MOV     A,R6
+000F F0                MOVX    @DPTR,A
+0010 A3                INC     DPTR
+0011 EF                MOV     A,R7
+0012 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 53
+0013 120000      E     LCALL   quaddec_left_Cnt16_ReadCapture
+0016 900000      R     MOV     DPTR,#quaddec_left_Cnt16_backup+04H
+0019 EE                MOV     A,R6
+001A F0                MOVX    @DPTR,A
+001B A3                INC     DPTR
+001C EF                MOV     A,R7
+001D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 55
+001E 22                RET     
+             ; FUNCTION quaddec_left_Cnt16_SaveConfig (END)
+
+             ; FUNCTION quaddec_left_Cnt16_RestoreConfig (BEGIN)
+                                           ; SOURCE LINE # 79
+                                           ; SOURCE LINE # 80
+                                           ; SOURCE LINE # 83
+0000 900000      R     MOV     DPTR,#quaddec_left_Cnt16_backup
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 120000      E     LCALL   _quaddec_left_Cnt16_WriteControlRegister
+                                           ; SOURCE LINE # 86
+0008 900000      R     MOV     DPTR,#quaddec_left_Cnt16_backup+02H
+000B E0                MOVX    A,@DPTR
+000C FE                MOV     R6,A
+000D A3                INC     DPTR
+000E E0                MOVX    A,@DPTR
+000F FF                MOV     R7,A
+0010 120000      E     LCALL   _quaddec_left_Cnt16_WriteCounter
+                                           ; SOURCE LINE # 87
+0013 7B02              MOV     R3,#02H
+0015 7A64              MOV     R2,#064H
+0017 794C              MOV     R1,#04CH
+0019 900000      R     MOV     DPTR,#quaddec_left_Cnt16_backup+04H
+001C E0                MOVX    A,@DPTR
+001D FC                MOV     R4,A
+001E A3                INC     DPTR
+001F E0                MOVX    A,@DPTR
+0020 FD                MOV     R5,A
+0021 120000      E     LCALL   _cywrite16_nodpx
+                                           ; SOURCE LINE # 89
+0024 22                RET     
+             ; FUNCTION quaddec_left_Cnt16_RestoreConfig (END)
+
+C51 COMPILER V9.03   QUADDEC_LEFT_CNT16_PM                                                 05/13/2012 22:25:56 PAGE 5   
+
+             ; FUNCTION quaddec_left_Cnt16_Sleep (BEGIN)
+                                           ; SOURCE LINE # 112
+                                           ; SOURCE LINE # 113
+                                           ; SOURCE LINE # 116
+0000 90647A            MOV     DPTR,#0647AH
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 5480              ANL     A,#080H
+0008 FF                MOV     R7,A
+0009 7E00              MOV     R6,#00H
+000B EF                MOV     A,R7
+000C 6480              XRL     A,#080H
+000E 4E                ORL     A,R6
+000F 7008              JNZ     ?C0003
+                                           ; SOURCE LINE # 117
+                                           ; SOURCE LINE # 119
+0011 900000      R     MOV     DPTR,#quaddec_left_Cnt16_backup+01H
+0014 7401              MOV     A,#01H
+0016 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 120
+0017 8005              SJMP    ?C0004
+0019         ?C0003:
+                                           ; SOURCE LINE # 122
+                                           ; SOURCE LINE # 124
+0019 900000      R     MOV     DPTR,#quaddec_left_Cnt16_backup+01H
+001C E4                CLR     A
+001D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 125
+001E         ?C0004:
+                                           ; SOURCE LINE # 128
+001E 120000      E     LCALL   quaddec_left_Cnt16_Stop
+                                           ; SOURCE LINE # 129
+0021 120000      R     LCALL   quaddec_left_Cnt16_SaveConfig
+                                           ; SOURCE LINE # 130
+0024 22                RET     
+             ; FUNCTION quaddec_left_Cnt16_Sleep (END)
+
+             ; FUNCTION quaddec_left_Cnt16_Wakeup (BEGIN)
+                                           ; SOURCE LINE # 154
+                                           ; SOURCE LINE # 155
+                                           ; SOURCE LINE # 156
+0000 120000      R     LCALL   quaddec_left_Cnt16_RestoreConfig
+                                           ; SOURCE LINE # 159
+0003 900000      R     MOV     DPTR,#quaddec_left_Cnt16_backup+01H
+0006 E0                MOVX    A,@DPTR
+0007 FF                MOV     R7,A
+0008 EF                MOV     A,R7
+0009 B40103            CJNE    A,#01H,?C0007
+                                           ; SOURCE LINE # 160
+                                           ; SOURCE LINE # 162
+000C 120000      E     LCALL   quaddec_left_Cnt16_Enable
+                                           ; SOURCE LINE # 164
+                                           ; SOURCE LINE # 166
+000F         ?C0007:
+000F 22                RET     
+             ; FUNCTION quaddec_left_Cnt16_Wakeup (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    121    ----
+C51 COMPILER V9.03   QUADDEC_LEFT_CNT16_PM                                                 05/13/2012 22:25:56 PAGE 6   
+
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      6    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

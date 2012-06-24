@@ -1,0 +1,712 @@
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE DISTANCE
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\distance.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\dist
+                    -ance.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\distance.lst) CD DB NOIP OT(2,SIZE) INCDIR(Generat
+                    -ed_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\distance.obj)
+
+line level    source
+
+   1          #include <math.h>
+   2          #include "distance.h"
+   3          #include "options.h"
+   4          #include "global_variable.h"
+   5          
+   6          void polar_from_wheels(struct wheels *_in, struct polar *_out)
+   7          {
+   8   1          _out->distance = (-_in->right + _in->left)>>1;//>>1 pour plus de perfs ?
+   9   1          _out->angle    = color_sign * ( -_in->right - _in->left );
+  10   1      }
+  11          
+  12          void wheels_from_polar(struct polar *_in, struct wheels *_out)
+  13          {
+  14   1          _out->left  =  (_in->distance - (_in->angle >>1));//>>1 pour plus de perfs ?
+  15   1          _out->right =  -(_in->distance + (_in->angle >> 1));//>>1 pour plus de perfs ?
+  16   1      }
+  17          
+  18          
+  19          void cartesian_from_polar(struct polar * _in, struct cartesian *_out)
+  20          {
+  21   1              _out->x = _in->distance * cos((float)(_in->angle / TRACK_TOP));
+  22   1              _out->y = _in->distance * sin((float)(_in->angle / TRACK_TOP));//-si "en haut"
+  23   1      }
+  24          
+  25          void polar_from_cartesian( struct cartesian * _in, struct polar *_out)
+  26          {
+  27   1              _out->distance = (int32_t)sqrt(_in->x*_in->x + _in->y*_in->y);
+  28   1              
+  29   1              if(_in->x < 0)
+  30   1              {
+  31   2                      if(_in->y < 0)
+  32   2                              _out->angle = (int32_t)((atan(((double)_in->y) / _in->x) - _PI) * TRACK_TOP);
+  33   2                      else
+  34   2                              _out->angle = (int32_t)((atan(((double)_in->y) / _in->x) + _PI )* TRACK_TOP);
+  35   2              }
+  36   1              else if(_in->x != 0)
+  37   1                      _out->angle = (int32_t)(atan(((double)_in->y) / _in->x) * TRACK_TOP);
+  38   1                      else
+  39   1                      {
+  40   2                              if(_in->y < 0)
+  41   2                                      _out->angle =(int32_t)(-_PI2 * TRACK_TOP);
+  42   2                              else
+  43   2                                      _out->angle = (int32_t)(_PI2 * TRACK_TOP);      
+  44   2                      }
+  45   1      }
+  46          
+  47          float euclidian_distance(struct cartesian* pt1, struct cartesian* pt2)
+  48          {
+  49   1              return sqrt((pt1->x - pt2->x) * (pt1->x - pt2->x)  + (pt1->y - pt2->y) * (pt1->y - pt2->y));
+  50   1      } 
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 2   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION _polar_from_wheels (BEGIN)
+                                           ; SOURCE LINE # 6
+0000 900000      R     MOV     DPTR,#_in
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 7
+                                           ; SOURCE LINE # 8
+0006 900000      R     MOV     DPTR,#_in
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 2404              ADD     A,#04H
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3400              ADDC    A,#00H
+0013 FA                MOV     R2,A
+0014 120000      E     LCALL   ?C?LLDPTR
+0017 120000      E     LCALL   ?C?LNEG
+001A 900000      R     MOV     DPTR,#_in
+001D 120000      E     LCALL   ?C?PLDXDATA
+0020 120000      E     LCALL   ?C?LLDPTR0
+0023 120000      E     LCALL   ?C?LADD
+0026 7801              MOV     R0,#01H
+0028 120000      E     LCALL   ?C?SLSHR
+002B 900000      R     MOV     DPTR,#_out
+002E 120000      E     LCALL   ?C?PLDXDATA
+0031 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 9
+0034 900000      R     MOV     DPTR,#_in
+0037 120000      E     LCALL   ?C?PLDXDATA
+003A E9                MOV     A,R1
+003B 2404              ADD     A,#04H
+003D F9                MOV     R1,A
+003E EA                MOV     A,R2
+003F 3400              ADDC    A,#00H
+0041 FA                MOV     R2,A
+0042 120000      E     LCALL   ?C?LLDPTR
+0045 120000      E     LCALL   ?C?LNEG
+0048 900000      R     MOV     DPTR,#_in
+004B 120000      E     LCALL   ?C?PLDXDATA
+004E 120000      E     LCALL   ?C?LLDPTR0
+0051 120000      E     LCALL   ?C?LSUB
+0054 A804              MOV     R0,AR4
+0056 A905              MOV     R1,AR5
+0058 AA06              MOV     R2,AR6
+005A AB07              MOV     R3,AR7
+005C 900000      E     MOV     DPTR,#color_sign
+005F E0                MOVX    A,@DPTR
+0060 FF                MOV     R7,A
+0061 EF                MOV     A,R7
+0062 33                RLC     A
+0063 95E0              SUBB    A,ACC
+0065 FE                MOV     R6,A
+0066 FD                MOV     R5,A
+0067 FC                MOV     R4,A
+0068 120000      E     LCALL   ?C?LMUL
+006B 900000      R     MOV     DPTR,#_out
+006E 120000      E     LCALL   ?C?PLDXDATA
+0071 E9                MOV     A,R1
+0072 2404              ADD     A,#04H
+0074 F9                MOV     R1,A
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 3   
+
+0075 EA                MOV     A,R2
+0076 3400              ADDC    A,#00H
+0078 FA                MOV     R2,A
+0079 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 10
+007C 22                RET     
+             ; FUNCTION _polar_from_wheels (END)
+
+             ; FUNCTION _wheels_from_polar (BEGIN)
+                                           ; SOURCE LINE # 12
+0000 900000      R     MOV     DPTR,#_in
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 13
+                                           ; SOURCE LINE # 14
+0006 900000      R     MOV     DPTR,#_in
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 2404              ADD     A,#04H
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3400              ADDC    A,#00H
+0013 FA                MOV     R2,A
+0014 120000      E     LCALL   ?C?LLDPTR
+0017 7801              MOV     R0,#01H
+0019 120000      E     LCALL   ?C?SLSHR
+001C C004              PUSH    AR4
+001E C005              PUSH    AR5
+0020 C006              PUSH    AR6
+0022 C007              PUSH    AR7
+0024 900000      R     MOV     DPTR,#_in
+0027 120000      E     LCALL   ?C?PLDXDATA
+002A 120000      E     LCALL   ?C?LLDPTR
+002D D003              POP     AR3
+002F D002              POP     AR2
+0031 D001              POP     AR1
+0033 D000              POP     AR0
+0035 120000      E     LCALL   ?C?LSUB
+0038 900000      R     MOV     DPTR,#_out
+003B 120000      E     LCALL   ?C?PLDXDATA
+003E 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 15
+0041 900000      R     MOV     DPTR,#_in
+0044 120000      E     LCALL   ?C?PLDXDATA
+0047 E9                MOV     A,R1
+0048 2404              ADD     A,#04H
+004A F9                MOV     R1,A
+004B EA                MOV     A,R2
+004C 3400              ADDC    A,#00H
+004E FA                MOV     R2,A
+004F 120000      E     LCALL   ?C?LLDPTR
+0052 7801              MOV     R0,#01H
+0054 120000      E     LCALL   ?C?SLSHR
+0057 900000      R     MOV     DPTR,#_in
+005A 120000      E     LCALL   ?C?PLDXDATA
+005D 120000      E     LCALL   ?C?LLDPTR0
+0060 120000      E     LCALL   ?C?LADD
+0063 120000      E     LCALL   ?C?LNEG
+0066 900000      R     MOV     DPTR,#_out
+0069 120000      E     LCALL   ?C?PLDXDATA
+006C E9                MOV     A,R1
+006D 2404              ADD     A,#04H
+006F F9                MOV     R1,A
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 4   
+
+0070 EA                MOV     A,R2
+0071 3400              ADDC    A,#00H
+0073 FA                MOV     R2,A
+0074 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 16
+0077 22                RET     
+             ; FUNCTION _wheels_from_polar (END)
+
+             ; FUNCTION _cartesian_from_polar (BEGIN)
+                                           ; SOURCE LINE # 19
+0000 900000      R     MOV     DPTR,#_in
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 20
+                                           ; SOURCE LINE # 21
+0006 900000      R     MOV     DPTR,#_in
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 2404              ADD     A,#04H
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3400              ADDC    A,#00H
+0013 FA                MOV     R2,A
+0014 120000      E     LCALL   ?C?LLDPTR
+0017 EC                MOV     A,R4
+0018 120000      E     LCALL   ?C?FCASTL
+001B 7B28              MOV     R3,#028H
+001D 7A25              MOV     R2,#025H
+001F 79D9              MOV     R1,#0D9H
+0021 7844              MOV     R0,#044H
+0023 120000      E     LCALL   ?C?FPDIV
+0026 120000      E     LCALL   _cos
+0029 C004              PUSH    AR4
+002B C005              PUSH    AR5
+002D C006              PUSH    AR6
+002F C007              PUSH    AR7
+0031 900000      R     MOV     DPTR,#_in
+0034 120000      E     LCALL   ?C?PLDXDATA
+0037 120000      E     LCALL   ?C?LLDPTR
+003A EC                MOV     A,R4
+003B 120000      E     LCALL   ?C?FCASTL
+003E A804              MOV     R0,AR4
+0040 A905              MOV     R1,AR5
+0042 AA06              MOV     R2,AR6
+0044 AB07              MOV     R3,AR7
+0046 D007              POP     AR7
+0048 D006              POP     AR6
+004A D005              POP     AR5
+004C D004              POP     AR4
+004E 120000      E     LCALL   ?C?FPMUL
+0051 900000      R     MOV     DPTR,#_out
+0054 120000      E     LCALL   ?C?PLDXDATA
+0057 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 22
+005A 900000      R     MOV     DPTR,#_in
+005D 120000      E     LCALL   ?C?PLDXDATA
+0060 E9                MOV     A,R1
+0061 2404              ADD     A,#04H
+0063 F9                MOV     R1,A
+0064 EA                MOV     A,R2
+0065 3400              ADDC    A,#00H
+0067 FA                MOV     R2,A
+0068 120000      E     LCALL   ?C?LLDPTR
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 5   
+
+006B EC                MOV     A,R4
+006C 120000      E     LCALL   ?C?FCASTL
+006F 7B28              MOV     R3,#028H
+0071 7A25              MOV     R2,#025H
+0073 79D9              MOV     R1,#0D9H
+0075 7844              MOV     R0,#044H
+0077 120000      E     LCALL   ?C?FPDIV
+007A 120000      E     LCALL   _sin
+007D C004              PUSH    AR4
+007F C005              PUSH    AR5
+0081 C006              PUSH    AR6
+0083 C007              PUSH    AR7
+0085 900000      R     MOV     DPTR,#_in
+0088 120000      E     LCALL   ?C?PLDXDATA
+008B 120000      E     LCALL   ?C?LLDPTR
+008E EC                MOV     A,R4
+008F 120000      E     LCALL   ?C?FCASTL
+0092 A804              MOV     R0,AR4
+0094 A905              MOV     R1,AR5
+0096 AA06              MOV     R2,AR6
+0098 AB07              MOV     R3,AR7
+009A D007              POP     AR7
+009C D006              POP     AR6
+009E D005              POP     AR5
+00A0 D004              POP     AR4
+00A2 120000      E     LCALL   ?C?FPMUL
+00A5 900000      R     MOV     DPTR,#_out
+00A8 120000      E     LCALL   ?C?PLDXDATA
+00AB E9                MOV     A,R1
+00AC 2404              ADD     A,#04H
+00AE F9                MOV     R1,A
+00AF EA                MOV     A,R2
+00B0 3400              ADDC    A,#00H
+00B2 FA                MOV     R2,A
+00B3 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 23
+00B6 22                RET     
+             ; FUNCTION _cartesian_from_polar (END)
+
+             ; FUNCTION _polar_from_cartesian (BEGIN)
+                                           ; SOURCE LINE # 25
+0000 900000      R     MOV     DPTR,#_in
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 26
+                                           ; SOURCE LINE # 27
+0006 900000      R     MOV     DPTR,#_in
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 2404              ADD     A,#04H
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3400              ADDC    A,#00H
+0013 FA                MOV     R2,A
+0014 120000      E     LCALL   ?C?LLDPTR
+0017 900000      R     MOV     DPTR,#_in
+001A 120000      E     LCALL   ?C?PLDXDATA
+001D E9                MOV     A,R1
+001E 2404              ADD     A,#04H
+0020 F9                MOV     R1,A
+0021 EA                MOV     A,R2
+0022 3400              ADDC    A,#00H
+0024 FA                MOV     R2,A
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 6   
+
+0025 120000      E     LCALL   ?C?LLDPTR0
+0028 120000      E     LCALL   ?C?FPMUL
+002B C004              PUSH    AR4
+002D C005              PUSH    AR5
+002F C006              PUSH    AR6
+0031 C007              PUSH    AR7
+0033 900000      R     MOV     DPTR,#_in
+0036 120000      E     LCALL   ?C?PLDXDATA
+0039 120000      E     LCALL   ?C?LLDPTR
+003C 900000      R     MOV     DPTR,#_in
+003F 120000      E     LCALL   ?C?PLDXDATA
+0042 120000      E     LCALL   ?C?LLDPTR0
+0045 120000      E     LCALL   ?C?FPMUL
+0048 A804              MOV     R0,AR4
+004A A905              MOV     R1,AR5
+004C AA06              MOV     R2,AR6
+004E AB07              MOV     R3,AR7
+0050 D007              POP     AR7
+0052 D006              POP     AR6
+0054 D005              POP     AR5
+0056 D004              POP     AR4
+0058 120000      E     LCALL   ?C?FPADD
+005B 120000      E     LCALL   _sqrt
+005E 120000      E     LCALL   ?C?CASTF
+0061 900000      R     MOV     DPTR,#_out
+0064 120000      E     LCALL   ?C?PLDXDATA
+0067 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 29
+006A 900000      R     MOV     DPTR,#_in
+006D 120000      E     LCALL   ?C?PLDXDATA
+0070 120000      E     LCALL   ?C?LLDPTR
+0073 7B00              MOV     R3,#00H
+0075 7A00              MOV     R2,#00H
+0077 7900              MOV     R1,#00H
+0079 7800              MOV     R0,#00H
+007B 120000      E     LCALL   ?C?FPCMP3
+007E 6002              JZ      $ + 4H
+0080 5003              JNC     $ + 5H
+0082 020000      R     LJMP    ?C0004
+                                           ; SOURCE LINE # 30
+                                           ; SOURCE LINE # 31
+0085 900000      R     MOV     DPTR,#_in
+0088 120000      E     LCALL   ?C?PLDXDATA
+008B E9                MOV     A,R1
+008C 2404              ADD     A,#04H
+008E F9                MOV     R1,A
+008F EA                MOV     A,R2
+0090 3400              ADDC    A,#00H
+0092 FA                MOV     R2,A
+0093 120000      E     LCALL   ?C?LLDPTR
+0096 7B00              MOV     R3,#00H
+0098 7A00              MOV     R2,#00H
+009A 7900              MOV     R1,#00H
+009C 7800              MOV     R0,#00H
+009E 120000      E     LCALL   ?C?FPCMP3
+00A1 604D              JZ      ?C0005
+00A3 404B              JC      ?C0005
+                                           ; SOURCE LINE # 32
+00A5 900000      R     MOV     DPTR,#_in
+00A8 120000      E     LCALL   ?C?PLDXDATA
+00AB E9                MOV     A,R1
+00AC 2404              ADD     A,#04H
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 7   
+
+00AE F9                MOV     R1,A
+00AF EA                MOV     A,R2
+00B0 3400              ADDC    A,#00H
+00B2 FA                MOV     R2,A
+00B3 120000      E     LCALL   ?C?LLDPTR
+00B6 900000      R     MOV     DPTR,#_in
+00B9 120000      E     LCALL   ?C?PLDXDATA
+00BC 120000      E     LCALL   ?C?LLDPTR0
+00BF 120000      E     LCALL   ?C?FPDIV
+00C2 120000      E     LCALL   _atan
+00C5 7BDB              MOV     R3,#0DBH
+00C7 7A0F              MOV     R2,#0FH
+00C9 7949              MOV     R1,#049H
+00CB 78C0              MOV     R0,#0C0H
+00CD 120000      E     LCALL   ?C?FPADD
+00D0 7B28              MOV     R3,#028H
+00D2 7A25              MOV     R2,#025H
+00D4 79D9              MOV     R1,#0D9H
+00D6 7844              MOV     R0,#044H
+00D8 120000      E     LCALL   ?C?FPMUL
+00DB 120000      E     LCALL   ?C?CASTF
+00DE 900000      R     MOV     DPTR,#_out
+00E1 120000      E     LCALL   ?C?PLDXDATA
+00E4 E9                MOV     A,R1
+00E5 2404              ADD     A,#04H
+00E7 F9                MOV     R1,A
+00E8 EA                MOV     A,R2
+00E9 3400              ADDC    A,#00H
+00EB FA                MOV     R2,A
+00EC 120000      E     LCALL   ?C?LSTPTR
+00EF 22                RET     
+00F0         ?C0005:
+                                           ; SOURCE LINE # 34
+00F0 900000      R     MOV     DPTR,#_in
+00F3 120000      E     LCALL   ?C?PLDXDATA
+00F6 E9                MOV     A,R1
+00F7 2404              ADD     A,#04H
+00F9 F9                MOV     R1,A
+00FA EA                MOV     A,R2
+00FB 3400              ADDC    A,#00H
+00FD FA                MOV     R2,A
+00FE 120000      E     LCALL   ?C?LLDPTR
+0101 900000      R     MOV     DPTR,#_in
+0104 120000      E     LCALL   ?C?PLDXDATA
+0107 120000      E     LCALL   ?C?LLDPTR0
+010A 120000      E     LCALL   ?C?FPDIV
+010D 120000      E     LCALL   _atan
+0110 7BDB              MOV     R3,#0DBH
+0112 7A0F              MOV     R2,#0FH
+0114 7949              MOV     R1,#049H
+0116 7840              MOV     R0,#040H
+0118 120000      E     LCALL   ?C?FPADD
+011B 7B28              MOV     R3,#028H
+011D 7A25              MOV     R2,#025H
+011F 79D9              MOV     R1,#0D9H
+0121 7844              MOV     R0,#044H
+0123 120000      E     LCALL   ?C?FPMUL
+0126 120000      E     LCALL   ?C?CASTF
+0129 900000      R     MOV     DPTR,#_out
+012C 120000      E     LCALL   ?C?PLDXDATA
+012F E9                MOV     A,R1
+0130 2404              ADD     A,#04H
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 8   
+
+0132 F9                MOV     R1,A
+0133 EA                MOV     A,R2
+0134 3400              ADDC    A,#00H
+0136 FA                MOV     R2,A
+0137 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 35
+013A 22                RET     
+013B         ?C0004:
+                                           ; SOURCE LINE # 36
+013B 900000      R     MOV     DPTR,#_in
+013E 120000      E     LCALL   ?C?PLDXDATA
+0141 120000      E     LCALL   ?C?LLDPTR
+0144 7B00              MOV     R3,#00H
+0146 7A00              MOV     R2,#00H
+0148 7900              MOV     R1,#00H
+014A 7800              MOV     R0,#00H
+014C 120000      E     LCALL   ?C?FPCMP3
+014F 6040              JZ      ?C0008
+                                           ; SOURCE LINE # 37
+0151 900000      R     MOV     DPTR,#_in
+0154 120000      E     LCALL   ?C?PLDXDATA
+0157 E9                MOV     A,R1
+0158 2404              ADD     A,#04H
+015A F9                MOV     R1,A
+015B EA                MOV     A,R2
+015C 3400              ADDC    A,#00H
+015E FA                MOV     R2,A
+015F 120000      E     LCALL   ?C?LLDPTR
+0162 900000      R     MOV     DPTR,#_in
+0165 120000      E     LCALL   ?C?PLDXDATA
+0168 120000      E     LCALL   ?C?LLDPTR0
+016B 120000      E     LCALL   ?C?FPDIV
+016E 120000      E     LCALL   _atan
+0171 7B28              MOV     R3,#028H
+0173 7A25              MOV     R2,#025H
+0175 79D9              MOV     R1,#0D9H
+0177 7844              MOV     R0,#044H
+0179 120000      E     LCALL   ?C?FPMUL
+017C 120000      E     LCALL   ?C?CASTF
+017F 900000      R     MOV     DPTR,#_out
+0182 120000      E     LCALL   ?C?PLDXDATA
+0185 E9                MOV     A,R1
+0186 2404              ADD     A,#04H
+0188 F9                MOV     R1,A
+0189 EA                MOV     A,R2
+018A 3400              ADDC    A,#00H
+018C FA                MOV     R2,A
+018D 120000      E     LCALL   ?C?LSTPTR
+0190 22                RET     
+0191         ?C0008:
+                                           ; SOURCE LINE # 39
+                                           ; SOURCE LINE # 40
+0191 900000      R     MOV     DPTR,#_in
+0194 120000      E     LCALL   ?C?PLDXDATA
+0197 E9                MOV     A,R1
+0198 2404              ADD     A,#04H
+019A F9                MOV     R1,A
+019B EA                MOV     A,R2
+019C 3400              ADDC    A,#00H
+019E FA                MOV     R2,A
+019F 120000      E     LCALL   ?C?LLDPTR
+01A2 7B00              MOV     R3,#00H
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 9   
+
+01A4 7A00              MOV     R2,#00H
+01A6 7900              MOV     R1,#00H
+01A8 7800              MOV     R0,#00H
+01AA 120000      E     LCALL   ?C?FPCMP3
+01AD 601C              JZ      ?C0010
+01AF 401A              JC      ?C0010
+                                           ; SOURCE LINE # 41
+01B1 7F58              MOV     R7,#058H
+01B3 7EF5              MOV     R6,#0F5H
+01B5 7DFF              MOV     R5,#0FFH
+01B7 7CFF              MOV     R4,#0FFH
+01B9 900000      R     MOV     DPTR,#_out
+01BC 120000      E     LCALL   ?C?PLDXDATA
+01BF E9                MOV     A,R1
+01C0 2404              ADD     A,#04H
+01C2 F9                MOV     R1,A
+01C3 EA                MOV     A,R2
+01C4 3400              ADDC    A,#00H
+01C6 FA                MOV     R2,A
+01C7 120000      E     LCALL   ?C?LSTPTR
+01CA 22                RET     
+01CB         ?C0010:
+                                           ; SOURCE LINE # 43
+01CB 7FA8              MOV     R7,#0A8H
+01CD 7E0A              MOV     R6,#0AH
+01CF 7D00              MOV     R5,#00H
+01D1 7C00              MOV     R4,#00H
+01D3 900000      R     MOV     DPTR,#_out
+01D6 120000      E     LCALL   ?C?PLDXDATA
+01D9 E9                MOV     A,R1
+01DA 2404              ADD     A,#04H
+01DC F9                MOV     R1,A
+01DD EA                MOV     A,R2
+01DE 3400              ADDC    A,#00H
+01E0 FA                MOV     R2,A
+01E1 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 44
+                                           ; SOURCE LINE # 45
+01E4         ?C0012:
+01E4 22                RET     
+             ; FUNCTION _polar_from_cartesian (END)
+
+             ; FUNCTION _euclidian_distance (BEGIN)
+                                           ; SOURCE LINE # 47
+0000 900000      R     MOV     DPTR,#pt1
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 48
+                                           ; SOURCE LINE # 49
+0006 900000      R     MOV     DPTR,#pt2
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 2404              ADD     A,#04H
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3400              ADDC    A,#00H
+0013 FA                MOV     R2,A
+0014 120000      E     LCALL   ?C?LLDPTR0
+0017 C000              PUSH    AR0
+0019 C001              PUSH    AR1
+001B C002              PUSH    AR2
+001D C003              PUSH    AR3
+001F 900000      R     MOV     DPTR,#pt1
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 10  
+
+0022 120000      E     LCALL   ?C?PLDXDATA
+0025 E9                MOV     A,R1
+0026 2404              ADD     A,#04H
+0028 F9                MOV     R1,A
+0029 EA                MOV     A,R2
+002A 3400              ADDC    A,#00H
+002C FA                MOV     R2,A
+002D 120000      E     LCALL   ?C?LLDPTR
+0030 D003              POP     AR3
+0032 D002              POP     AR2
+0034 D001              POP     AR1
+0036 D000              POP     AR0
+0038 120000      E     LCALL   ?C?FPSUB
+003B C004              PUSH    AR4
+003D C005              PUSH    AR5
+003F C006              PUSH    AR6
+0041 C007              PUSH    AR7
+0043 900000      R     MOV     DPTR,#pt2
+0046 120000      E     LCALL   ?C?PLDXDATA
+0049 E9                MOV     A,R1
+004A 2404              ADD     A,#04H
+004C F9                MOV     R1,A
+004D EA                MOV     A,R2
+004E 3400              ADDC    A,#00H
+0050 FA                MOV     R2,A
+0051 120000      E     LCALL   ?C?LLDPTR0
+0054 C000              PUSH    AR0
+0056 C001              PUSH    AR1
+0058 C002              PUSH    AR2
+005A C003              PUSH    AR3
+005C 900000      R     MOV     DPTR,#pt1
+005F 120000      E     LCALL   ?C?PLDXDATA
+0062 E9                MOV     A,R1
+0063 2404              ADD     A,#04H
+0065 F9                MOV     R1,A
+0066 EA                MOV     A,R2
+0067 3400              ADDC    A,#00H
+0069 FA                MOV     R2,A
+006A 120000      E     LCALL   ?C?LLDPTR
+006D D003              POP     AR3
+006F D002              POP     AR2
+0071 D001              POP     AR1
+0073 D000              POP     AR0
+0075 120000      E     LCALL   ?C?FPSUB
+0078 A804              MOV     R0,AR4
+007A A905              MOV     R1,AR5
+007C AA06              MOV     R2,AR6
+007E AB07              MOV     R3,AR7
+0080 D007              POP     AR7
+0082 D006              POP     AR6
+0084 D005              POP     AR5
+0086 D004              POP     AR4
+0088 120000      E     LCALL   ?C?FPMUL
+008B C004              PUSH    AR4
+008D C005              PUSH    AR5
+008F C006              PUSH    AR6
+0091 C007              PUSH    AR7
+0093 900000      R     MOV     DPTR,#pt2
+0096 120000      E     LCALL   ?C?PLDXDATA
+0099 120000      E     LCALL   ?C?LLDPTR0
+009C C000              PUSH    AR0
+009E C001              PUSH    AR1
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 11  
+
+00A0 C002              PUSH    AR2
+00A2 C003              PUSH    AR3
+00A4 900000      R     MOV     DPTR,#pt1
+00A7 120000      E     LCALL   ?C?PLDXDATA
+00AA 120000      E     LCALL   ?C?LLDPTR
+00AD D003              POP     AR3
+00AF D002              POP     AR2
+00B1 D001              POP     AR1
+00B3 D000              POP     AR0
+00B5 120000      E     LCALL   ?C?FPSUB
+00B8 C004              PUSH    AR4
+00BA C005              PUSH    AR5
+00BC C006              PUSH    AR6
+00BE C007              PUSH    AR7
+00C0 900000      R     MOV     DPTR,#pt2
+00C3 120000      E     LCALL   ?C?PLDXDATA
+00C6 120000      E     LCALL   ?C?LLDPTR0
+00C9 C000              PUSH    AR0
+00CB C001              PUSH    AR1
+00CD C002              PUSH    AR2
+00CF C003              PUSH    AR3
+00D1 900000      R     MOV     DPTR,#pt1
+00D4 120000      E     LCALL   ?C?PLDXDATA
+00D7 120000      E     LCALL   ?C?LLDPTR
+00DA D003              POP     AR3
+00DC D002              POP     AR2
+00DE D001              POP     AR1
+00E0 D000              POP     AR0
+00E2 120000      E     LCALL   ?C?FPSUB
+00E5 A804              MOV     R0,AR4
+00E7 A905              MOV     R1,AR5
+00E9 AA06              MOV     R2,AR6
+00EB AB07              MOV     R3,AR7
+00ED D007              POP     AR7
+00EF D006              POP     AR6
+00F1 D005              POP     AR5
+00F3 D004              POP     AR4
+00F5 120000      E     LCALL   ?C?FPMUL
+00F8 A804              MOV     R0,AR4
+00FA A905              MOV     R1,AR5
+00FC AA06              MOV     R2,AR6
+00FE AB07              MOV     R3,AR7
+0100 D007              POP     AR7
+0102 D006              POP     AR6
+0104 D005              POP     AR5
+0106 D004              POP     AR4
+0108 120000      E     LCALL   ?C?FPADD
+010B 120000      E     LCALL   _sqrt
+                                           ; SOURCE LINE # 50
+010E         ?C0013:
+010E 22                RET     
+             ; FUNCTION _euclidian_distance (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1184    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----      30
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+C51 COMPILER V9.03   DISTANCE                                                              05/13/2012 22:25:51 PAGE 12  
+
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

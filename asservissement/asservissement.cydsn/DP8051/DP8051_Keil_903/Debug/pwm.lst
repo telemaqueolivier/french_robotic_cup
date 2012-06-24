@@ -1,0 +1,455 @@
+C51 COMPILER V9.03   PWM                                                                   05/13/2012 22:25:52 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE PWM
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\pwm.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\pwm.
+                    -c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\pwm.lst) CD DB NOIP OT(2,SIZE) INCDIR(Generated_Source\
+                    -PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\pwm.obj)
+
+line level    source
+
+   1          /*  
+   2           *  Copyright Projet & Tech' (2008-2009)
+   3           * 
+   4           *  This program is free software; you can redistribute it and/or modify
+   5           *  it under the terms of the GNU General Public License as published by
+   6           *  the Free Software Foundation; either version 2 of the License, or
+   7           *  (at your option) any later version.
+   8           *
+   9           *  This program is distributed in the hope that it will be useful,
+  10           *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  11           *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  12           *  GNU General Public License for more details.
+  13           *
+  14           *  You should have received a copy of the GNU General Public License
+  15           *  along with this program; if not, write to the Free Software
+  16           *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  17           * 
+  18           *      Fay??al GUENNAR <f.guennar@gmail.com>
+  19           */
+  20           
+  21          #include "pwm.h"
+  22          #include "pwm_right.h"
+  23          #include "pwm_left.h"
+  24          #include "pwm_right_control_reg.h"
+  25          #include "pwm_left_control_reg.h"
+  26          #include "options.h"
+  27          
+  28          #define FORWARD_LEFT 0
+  29          #define BACKWARD_LEFT 1
+  30          #define FORWARD_RIGHT 1
+  31          #define BACKWARD_RIGHT 0
+  32          
+  33          void pwm_init(void)
+  34          {
+  35   1              pwm_right_Start();
+  36   1              pwm_left_Start();
+  37   1              pwm_right_control_reg_Write(FORWARD_RIGHT);
+  38   1              pwm_left_control_reg_Write(FORWARD_LEFT);
+  39   1      }
+  40          
+  41          void pwm_left(int16 value)
+  42          {
+  43   1              //initialised at the first function call
+  44   1              static uint8 pwmg_prev_direction = FORWARD_LEFT;
+  45   1      
+  46   1              if(value < 0)
+  47   1              {
+  48   2                      //If we should go BACKWARD_LEFT
+  49   2                      if(pwmg_prev_direction != BACKWARD_LEFT)
+  50   2                      {
+  51   3                              //If we were going FORWARD_LEFT
+  52   3                              pwm_left_Stop(); 
+  53   3                              //change output to P_0_2 
+C51 COMPILER V9.03   PWM                                                                   05/13/2012 22:25:52 PAGE 2   
+
+  54   3                              pwm_left_control_reg_Write(BACKWARD_LEFT);
+  55   3                              
+  56   3                              pwmg_prev_direction = BACKWARD_LEFT;
+  57   3                      }
+  58   2                      //invert value
+  59   2                      value = -value;
+  60   2              }
+  61   1              else
+  62   1              {
+  63   2                      //If we should go FORWARD_LEFT
+  64   2                      if(pwmg_prev_direction != FORWARD_LEFT)
+  65   2                      {
+  66   3                              //If we were going BACKWARD_LEFT
+  67   3                              pwm_left_Stop(); 
+  68   3                              //change output to P_0_3
+  69   3                              pwm_left_control_reg_Write(FORWARD_LEFT);
+  70   3                              
+  71   3                              pwmg_prev_direction = FORWARD_LEFT;
+  72   3                      }
+  73   2              }
+  74   1              //cut the value if it is over the maximum
+  75   1              if(value > PWM_MAX) value = PWM_MAX;  
+  76   1      
+  77   1              #ifdef DEBUG_PWM
+                      {
+                              char buff[20];
+                              
+                              sprintf(buff, "debug PWM L value = %d\r\n>", value);
+                              uart_pc_PutString(buff);
+                      }
+                      #endif
+  85   1              
+  86   1              pwm_left_WriteCompare(value);  
+  87   1              pwm_left_Start(); 
+  88   1      }
+  89          
+  90          void pwm_right(int16 value)
+  91          {
+  92   1              //initialised at the first function call
+  93   1              static uint8 pwmg_prev_direction = FORWARD_RIGHT;
+  94   1      
+  95   1              if(value < 0)
+  96   1              {
+  97   2                      //If we should go BACKWARD_RIGHT
+  98   2                      if(pwmg_prev_direction != BACKWARD_RIGHT)
+  99   2                      {
+ 100   3                              //If we were going FORWARD_RIGHT
+ 101   3                              pwm_right_Stop(); 
+ 102   3                              //change output to P_0_0 
+ 103   3                              pwm_right_control_reg_Write(BACKWARD_RIGHT);
+ 104   3                              
+ 105   3                              pwmg_prev_direction = BACKWARD_RIGHT;
+ 106   3                      }
+ 107   2                      //invert value
+ 108   2                      value = -value;
+ 109   2              }
+ 110   1              else
+ 111   1              {
+ 112   2                      //If we should go FORWARD_RIGHT
+ 113   2                      if(pwmg_prev_direction != FORWARD_RIGHT)
+ 114   2                      {
+ 115   3                              //If we were going BACKWARD_RIGHT
+C51 COMPILER V9.03   PWM                                                                   05/13/2012 22:25:52 PAGE 3   
+
+ 116   3                              pwm_right_Stop(); 
+ 117   3                              //change output to P_0_1
+ 118   3                              pwm_right_control_reg_Write(FORWARD_RIGHT);
+ 119   3                              
+ 120   3                              pwmg_prev_direction = FORWARD_RIGHT;
+ 121   3                      }
+ 122   2              }
+ 123   1              //cut the value if it is over the maximum
+ 124   1              if(value > PWM_MAX) value = PWM_MAX;  
+ 125   1      
+ 126   1              #ifdef DEBUG_PWM
+                      {
+                              char buff[20];
+                              
+                              sprintf(buff, "debug PWM R value = %d\r\n>", value);
+                              UART_1_PutString(buff);
+                      }
+                      #endif
+ 134   1              
+ 135   1              pwm_right_WriteCompare(value);  
+ 136   1              pwm_right_Start(); 
+ 137   1      }
+ 138          
+ 139          void pwm_stop(void)
+ 140          {
+ 141   1              pwm_right_Stop(); 
+ 142   1              pwm_left_Stop(); 
+ 143   1      }
+C51 COMPILER V9.03   PWM                                                                   05/13/2012 22:25:52 PAGE 4   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION pwm_init (BEGIN)
+                                           ; SOURCE LINE # 33
+                                           ; SOURCE LINE # 34
+                                           ; SOURCE LINE # 35
+0000 120000      E     LCALL   pwm_right_Start
+                                           ; SOURCE LINE # 36
+0003 120000      E     LCALL   pwm_left_Start
+                                           ; SOURCE LINE # 37
+0006 7F01              MOV     R7,#01H
+0008 120000      E     LCALL   _pwm_right_control_reg_Write
+                                           ; SOURCE LINE # 38
+000B 7F00              MOV     R7,#00H
+000D 120000      E     LCALL   _pwm_left_control_reg_Write
+                                           ; SOURCE LINE # 39
+0010 22                RET     
+             ; FUNCTION pwm_init (END)
+
+             ; FUNCTION _pwm_left (BEGIN)
+                                           ; SOURCE LINE # 41
+0000 900000      R     MOV     DPTR,#value
+0003 EE                MOV     A,R6
+0004 F0                MOVX    @DPTR,A
+0005 A3                INC     DPTR
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 42
+                                           ; SOURCE LINE # 46
+0008 900000      R     MOV     DPTR,#value
+000B E0                MOVX    A,@DPTR
+000C FE                MOV     R6,A
+000D A3                INC     DPTR
+000E E0                MOVX    A,@DPTR
+000F FF                MOV     R7,A
+0010 C3                CLR     C
+0011 EE                MOV     A,R6
+0012 6480              XRL     A,#080H
+0014 9480              SUBB    A,#080H
+0016 5031              JNC     ?C0002
+                                           ; SOURCE LINE # 47
+                                           ; SOURCE LINE # 49
+0018 900000      R     MOV     DPTR,#pwmg_prev_direction
+001B E0                MOVX    A,@DPTR
+001C FF                MOV     R7,A
+001D EF                MOV     A,R7
+001E 6401              XRL     A,#01H
+0020 600E              JZ      ?C0003
+                                           ; SOURCE LINE # 50
+                                           ; SOURCE LINE # 52
+0022 120000      E     LCALL   pwm_left_Stop
+                                           ; SOURCE LINE # 54
+0025 7F01              MOV     R7,#01H
+0027 120000      E     LCALL   _pwm_left_control_reg_Write
+                                           ; SOURCE LINE # 56
+002A 900000      R     MOV     DPTR,#pwmg_prev_direction
+002D 7401              MOV     A,#01H
+002F F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 57
+0030         ?C0003:
+                                           ; SOURCE LINE # 59
+C51 COMPILER V9.03   PWM                                                                   05/13/2012 22:25:52 PAGE 5   
+
+0030 900000      R     MOV     DPTR,#value
+0033 E0                MOVX    A,@DPTR
+0034 FE                MOV     R6,A
+0035 A3                INC     DPTR
+0036 E0                MOVX    A,@DPTR
+0037 FF                MOV     R7,A
+0038 C3                CLR     C
+0039 E4                CLR     A
+003A 9F                SUBB    A,R7
+003B FF                MOV     R7,A
+003C E4                CLR     A
+003D 9E                SUBB    A,R6
+003E FE                MOV     R6,A
+003F 900000      R     MOV     DPTR,#value
+0042 EE                MOV     A,R6
+0043 F0                MOVX    @DPTR,A
+0044 A3                INC     DPTR
+0045 EF                MOV     A,R7
+0046 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 60
+0047 8015              SJMP    ?C0004
+0049         ?C0002:
+                                           ; SOURCE LINE # 62
+                                           ; SOURCE LINE # 64
+0049 900000      R     MOV     DPTR,#pwmg_prev_direction
+004C E0                MOVX    A,@DPTR
+004D FF                MOV     R7,A
+004E EF                MOV     A,R7
+004F 600D              JZ      ?C0004
+                                           ; SOURCE LINE # 65
+                                           ; SOURCE LINE # 67
+0051 120000      E     LCALL   pwm_left_Stop
+                                           ; SOURCE LINE # 69
+0054 7F00              MOV     R7,#00H
+0056 120000      E     LCALL   _pwm_left_control_reg_Write
+                                           ; SOURCE LINE # 71
+0059 900000      R     MOV     DPTR,#pwmg_prev_direction
+005C E4                CLR     A
+005D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 72
+                                           ; SOURCE LINE # 73
+005E         ?C0004:
+                                           ; SOURCE LINE # 75
+005E 900000      R     MOV     DPTR,#value
+0061 E0                MOVX    A,@DPTR
+0062 FE                MOV     R6,A
+0063 A3                INC     DPTR
+0064 E0                MOVX    A,@DPTR
+0065 FF                MOV     R7,A
+0066 D3                SETB    C
+0067 EF                MOV     A,R7
+0068 94FF              SUBB    A,#0FFH
+006A EE                MOV     A,R6
+006B 6480              XRL     A,#080H
+006D 9483              SUBB    A,#083H
+006F 400A              JC      ?C0006
+0071 900000      R     MOV     DPTR,#value
+0074 7403              MOV     A,#03H
+0076 F0                MOVX    @DPTR,A
+0077 A3                INC     DPTR
+0078 74FF              MOV     A,#0FFH
+007A F0                MOVX    @DPTR,A
+C51 COMPILER V9.03   PWM                                                                   05/13/2012 22:25:52 PAGE 6   
+
+007B         ?C0006:
+                                           ; SOURCE LINE # 86
+007B 900000      R     MOV     DPTR,#value
+007E E0                MOVX    A,@DPTR
+007F FE                MOV     R6,A
+0080 A3                INC     DPTR
+0081 E0                MOVX    A,@DPTR
+0082 FF                MOV     R7,A
+0083 120000      E     LCALL   _pwm_left_WriteCompare
+                                           ; SOURCE LINE # 87
+0086 120000      E     LCALL   pwm_left_Start
+                                           ; SOURCE LINE # 88
+0089 22                RET     
+             ; FUNCTION _pwm_left (END)
+
+             ; FUNCTION _pwm_right (BEGIN)
+                                           ; SOURCE LINE # 90
+0000 900000      R     MOV     DPTR,#value
+0003 EE                MOV     A,R6
+0004 F0                MOVX    @DPTR,A
+0005 A3                INC     DPTR
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 91
+                                           ; SOURCE LINE # 95
+0008 900000      R     MOV     DPTR,#value
+000B E0                MOVX    A,@DPTR
+000C FE                MOV     R6,A
+000D A3                INC     DPTR
+000E E0                MOVX    A,@DPTR
+000F FF                MOV     R7,A
+0010 C3                CLR     C
+0011 EE                MOV     A,R6
+0012 6480              XRL     A,#080H
+0014 9480              SUBB    A,#080H
+0016 502E              JNC     ?C0008
+                                           ; SOURCE LINE # 96
+                                           ; SOURCE LINE # 98
+0018 900000      R     MOV     DPTR,#pwmg_prev_direction
+001B E0                MOVX    A,@DPTR
+001C FF                MOV     R7,A
+001D EF                MOV     A,R7
+001E 600D              JZ      ?C0009
+                                           ; SOURCE LINE # 99
+                                           ; SOURCE LINE # 101
+0020 120000      E     LCALL   pwm_right_Stop
+                                           ; SOURCE LINE # 103
+0023 7F00              MOV     R7,#00H
+0025 120000      E     LCALL   _pwm_right_control_reg_Write
+                                           ; SOURCE LINE # 105
+0028 900000      R     MOV     DPTR,#pwmg_prev_direction
+002B E4                CLR     A
+002C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 106
+002D         ?C0009:
+                                           ; SOURCE LINE # 108
+002D 900000      R     MOV     DPTR,#value
+0030 E0                MOVX    A,@DPTR
+0031 FE                MOV     R6,A
+0032 A3                INC     DPTR
+0033 E0                MOVX    A,@DPTR
+0034 FF                MOV     R7,A
+C51 COMPILER V9.03   PWM                                                                   05/13/2012 22:25:52 PAGE 7   
+
+0035 C3                CLR     C
+0036 E4                CLR     A
+0037 9F                SUBB    A,R7
+0038 FF                MOV     R7,A
+0039 E4                CLR     A
+003A 9E                SUBB    A,R6
+003B FE                MOV     R6,A
+003C 900000      R     MOV     DPTR,#value
+003F EE                MOV     A,R6
+0040 F0                MOVX    @DPTR,A
+0041 A3                INC     DPTR
+0042 EF                MOV     A,R7
+0043 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 109
+0044 8018              SJMP    ?C0010
+0046         ?C0008:
+                                           ; SOURCE LINE # 111
+                                           ; SOURCE LINE # 113
+0046 900000      R     MOV     DPTR,#pwmg_prev_direction
+0049 E0                MOVX    A,@DPTR
+004A FF                MOV     R7,A
+004B EF                MOV     A,R7
+004C 6401              XRL     A,#01H
+004E 600E              JZ      ?C0010
+                                           ; SOURCE LINE # 114
+                                           ; SOURCE LINE # 116
+0050 120000      E     LCALL   pwm_right_Stop
+                                           ; SOURCE LINE # 118
+0053 7F01              MOV     R7,#01H
+0055 120000      E     LCALL   _pwm_right_control_reg_Write
+                                           ; SOURCE LINE # 120
+0058 900000      R     MOV     DPTR,#pwmg_prev_direction
+005B 7401              MOV     A,#01H
+005D F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 121
+                                           ; SOURCE LINE # 122
+005E         ?C0010:
+                                           ; SOURCE LINE # 124
+005E 900000      R     MOV     DPTR,#value
+0061 E0                MOVX    A,@DPTR
+0062 FE                MOV     R6,A
+0063 A3                INC     DPTR
+0064 E0                MOVX    A,@DPTR
+0065 FF                MOV     R7,A
+0066 D3                SETB    C
+0067 EF                MOV     A,R7
+0068 94FF              SUBB    A,#0FFH
+006A EE                MOV     A,R6
+006B 6480              XRL     A,#080H
+006D 9483              SUBB    A,#083H
+006F 400A              JC      ?C0012
+0071 900000      R     MOV     DPTR,#value
+0074 7403              MOV     A,#03H
+0076 F0                MOVX    @DPTR,A
+0077 A3                INC     DPTR
+0078 74FF              MOV     A,#0FFH
+007A F0                MOVX    @DPTR,A
+007B         ?C0012:
+                                           ; SOURCE LINE # 135
+007B 900000      R     MOV     DPTR,#value
+007E E0                MOVX    A,@DPTR
+007F FE                MOV     R6,A
+C51 COMPILER V9.03   PWM                                                                   05/13/2012 22:25:52 PAGE 8   
+
+0080 A3                INC     DPTR
+0081 E0                MOVX    A,@DPTR
+0082 FF                MOV     R7,A
+0083 120000      E     LCALL   _pwm_right_WriteCompare
+                                           ; SOURCE LINE # 136
+0086 120000      E     LCALL   pwm_right_Start
+                                           ; SOURCE LINE # 137
+0089 22                RET     
+             ; FUNCTION _pwm_right (END)
+
+             ; FUNCTION pwm_stop (BEGIN)
+                                           ; SOURCE LINE # 139
+                                           ; SOURCE LINE # 140
+                                           ; SOURCE LINE # 141
+0000 120000      E     LCALL   pwm_right_Stop
+                                           ; SOURCE LINE # 142
+0003 120000      E     LCALL   pwm_left_Stop
+                                           ; SOURCE LINE # 143
+0006 22                RET     
+             ; FUNCTION pwm_stop (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    300    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      2       4
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

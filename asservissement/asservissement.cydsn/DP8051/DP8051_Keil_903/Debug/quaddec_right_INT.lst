@@ -1,0 +1,234 @@
+C51 COMPILER V9.03   QUADDEC_RIGHT_INT                                                     05/13/2012 22:25:54 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE QUADDEC_RIGHT_INT
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\quaddec_right_INT.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\Gene
+                    -rated_Source\PSoC3\quaddec_right_INT.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\quaddec_right_INT.
+                    -lst) CD DB NOIP OT(2,SIZE) INCDIR(Generated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\quaddec_right_INT.obj)
+
+line level    source
+
+   1          /*******************************************************************************
+   2          * File Name: quaddec_right_INT.c  
+   3          * Version 1.50
+   4          *
+   5          * Description:
+   6          *  This file contains the Interrupt Service Routine (ISR) for the Quadrature
+   7          *  Decoder component.
+   8          *
+   9          * Note:
+  10          *  None.
+  11          *
+  12          ********************************************************************************
+  13          * Copyright 2008-2010, Cypress Semiconductor Corporation.  All rights reserved.
+  14          * You may use this file only in accordance with the license, terms, conditions, 
+  15          * disclaimers, and limitations in the end user license agreement accompanying 
+  16          * the software package with which this file was provided.
+  17          *******************************************************************************/
+  18          
+  19          #include "quaddec_right.h"
+  20          
+  21          volatile int32 quaddec_right_count32SoftPart = 0u;
+  22          static uint8 quaddec_right_swStatus;
+  23          
+  24          
+  25          /*******************************************************************************
+  26          * FUNCTION NAME: void quaddec_right_ISR
+  27          ********************************************************************************
+  28          *
+  29          * Summary:
+  30          *  Interrupt Service Routine for Quadrature Decoder Component.
+  31          *
+  32          * Parameters:
+  33          *  None.
+  34          *
+  35          * Return:
+  36          *  None.
+  37          *
+  38          * Global variables:
+  39          *  quaddec_right_count32SoftPart - modified to update hi 16 bit for current
+  40          *  value of the 32-bit counter, when Counter size equal 32-bit.
+  41          *  quaddec_right_swStatus - modified with the updated values of STATUS 
+  42          *  register.
+  43          *
+  44          *******************************************************************************/
+  45          CY_ISR( quaddec_right_ISR )
+  46          {
+  47   1         quaddec_right_swStatus = quaddec_right_STATUS_REG;
+  48   1         
+  49   1          /* User code required at start of ISR */
+  50   1          /* `#START quaddec_right_ISR_START` */
+  51   1      
+  52   1          /* `#END` */
+  53   1          
+C51 COMPILER V9.03   QUADDEC_RIGHT_INT                                                     05/13/2012 22:25:54 PAGE 2   
+
+  54   1          if(quaddec_right_swStatus & quaddec_right_COUNTER_OVERFLOW)
+  55   1          {
+  56   2              quaddec_right_count32SoftPart += 0x7FFFu;
+  57   2          }
+  58   1          else if(quaddec_right_swStatus & quaddec_right_COUNTER_UNDERFLOW)
+  59   1          {
+  60   2              quaddec_right_count32SoftPart -= 0x8000u;
+  61   2          }
+  62   1          
+  63   1          if(quaddec_right_swStatus & quaddec_right_COUNTER_RESET)
+  64   1          {
+  65   2              quaddec_right_count32SoftPart = 0u;
+  66   2          }
+  67   1          
+  68   1          /* User code required at end of ISR */
+  69   1          /* `#START quaddec_right_ISR_END` */
+  70   1      
+  71   1          /* `#END` */
+  72   1          
+  73   1          /* PSoC3 ES1, ES2 quaddec_right ISR PATCH  */     
+  74   1          #if(quaddec_right_PSOC3_ES2 && (quaddec_right_isr__ES2_PATCH))
+                      quaddec_right_ISR_PATCH();
+                  #endif /* End quaddec_right_PSOC3_ES2*/   
+  77   1      }
+  78          
+  79          
+  80          /* [] END OF FILE */
+C51 COMPILER V9.03   QUADDEC_RIGHT_INT                                                     05/13/2012 22:25:54 PAGE 3   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION quaddec_right_ISR (BEGIN)
+0000 C0E0              PUSH    ACC
+0002 C0F0              PUSH    B
+0004 C083              PUSH    DPH
+0006 C082              PUSH    DPL
+0008 C085              PUSH    DPH1
+000A C084              PUSH    DPL1
+000C C086              PUSH    DPS
+000E 758600            MOV     DPS,#00H
+0011 C000        E     PUSH    ?C?XPAGE1SFR
+0013 750000      E     MOV     ?C?XPAGE1SFR,#?C?XPAGE1RST
+0016 C0D0              PUSH    PSW
+0018 75D000            MOV     PSW,#00H
+001B C000              PUSH    AR0
+001D C004              PUSH    AR4
+001F C005              PUSH    AR5
+0021 C006              PUSH    AR6
+0023 C007              PUSH    AR7
+                                           ; SOURCE LINE # 45
+                                           ; SOURCE LINE # 47
+0025 906467            MOV     DPTR,#06467H
+0028 E0                MOVX    A,@DPTR
+0029 FF                MOV     R7,A
+002A 900000      R     MOV     DPTR,#quaddec_right_swStatus
+002D EF                MOV     A,R7
+002E F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 54
+002F 900000      R     MOV     DPTR,#quaddec_right_swStatus
+0032 E0                MOVX    A,@DPTR
+0033 FF                MOV     R7,A
+0034 EF                MOV     A,R7
+0035 30E01E            JNB     ACC.0,?C0001
+                                           ; SOURCE LINE # 55
+                                           ; SOURCE LINE # 56
+0038 900000      R     MOV     DPTR,#quaddec_right_count32SoftPart
+003B 120000      E     LCALL   ?C?LLDXDATA
+003E EF                MOV     A,R7
+003F 24FF              ADD     A,#0FFH
+0041 FF                MOV     R7,A
+0042 EE                MOV     A,R6
+0043 347F              ADDC    A,#07FH
+0045 FE                MOV     R6,A
+0046 ED                MOV     A,R5
+0047 3400              ADDC    A,#00H
+0049 FD                MOV     R5,A
+004A EC                MOV     A,R4
+004B 3400              ADDC    A,#00H
+004D FC                MOV     R4,A
+004E 900000      R     MOV     DPTR,#quaddec_right_count32SoftPart
+0051 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 57
+0054 8026              SJMP    ?C0002
+0056         ?C0001:
+                                           ; SOURCE LINE # 58
+0056 900000      R     MOV     DPTR,#quaddec_right_swStatus
+0059 E0                MOVX    A,@DPTR
+005A FF                MOV     R7,A
+005B EF                MOV     A,R7
+005C 30E11D            JNB     ACC.1,?C0002
+C51 COMPILER V9.03   QUADDEC_RIGHT_INT                                                     05/13/2012 22:25:54 PAGE 4   
+
+                                           ; SOURCE LINE # 59
+                                           ; SOURCE LINE # 60
+005F 900000      R     MOV     DPTR,#quaddec_right_count32SoftPart
+0062 120000      E     LCALL   ?C?LLDXDATA
+0065 C3                CLR     C
+0066 EF                MOV     A,R7
+0067 9400              SUBB    A,#00H
+0069 FF                MOV     R7,A
+006A EE                MOV     A,R6
+006B 9480              SUBB    A,#080H
+006D FE                MOV     R6,A
+006E ED                MOV     A,R5
+006F 9400              SUBB    A,#00H
+0071 FD                MOV     R5,A
+0072 EC                MOV     A,R4
+0073 9400              SUBB    A,#00H
+0075 FC                MOV     R4,A
+0076 900000      R     MOV     DPTR,#quaddec_right_count32SoftPart
+0079 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 61
+007C         ?C0002:
+                                           ; SOURCE LINE # 63
+007C 900000      R     MOV     DPTR,#quaddec_right_swStatus
+007F E0                MOVX    A,@DPTR
+0080 FF                MOV     R7,A
+0081 EF                MOV     A,R7
+0082 30E20E            JNB     ACC.2,?C0005
+                                           ; SOURCE LINE # 64
+                                           ; SOURCE LINE # 65
+0085 7F00              MOV     R7,#00H
+0087 7E00              MOV     R6,#00H
+0089 7D00              MOV     R5,#00H
+008B 7C00              MOV     R4,#00H
+008D 900000      R     MOV     DPTR,#quaddec_right_count32SoftPart
+0090 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 66
+                                           ; SOURCE LINE # 77
+0093         ?C0005:
+0093 D007              POP     AR7
+0095 D006              POP     AR6
+0097 D005              POP     AR5
+0099 D004              POP     AR4
+009B D000              POP     AR0
+009D D0D0              POP     PSW
+009F D000        E     POP     ?C?XPAGE1SFR
+00A1 D086              POP     DPS
+00A3 D084              POP     DPL1
+00A5 D085              POP     DPH1
+00A7 D082              POP     DPL
+00A9 D083              POP     DPH
+00AB D0F0              POP     B
+00AD D0E0              POP     ACC
+00AF 32                RETI    
+             ; FUNCTION quaddec_right_ISR (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    176    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      5    ----
+   PDATA SIZE       =   ----    ----
+C51 COMPILER V9.03   QUADDEC_RIGHT_INT                                                     05/13/2012 22:25:54 PAGE 5   
+
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

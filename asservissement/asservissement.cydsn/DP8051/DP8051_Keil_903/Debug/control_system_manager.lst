@@ -1,0 +1,827 @@
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE CONTROL_SYSTEM_MANAGER
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\control_system_manager.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\cont
+                    -rol_system_manager.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\control_system_manager.lst) CD DB NO
+                    -IP OT(2,SIZE) INCDIR(Generated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\control_system_manager.obj)
+
+line level    source
+
+   1          /*  
+   2           *  Copyright Droids Corporation, Microb Technology, Eirbot (2005), Projet & Tech' (2008-2009)
+   3           * 
+   4           *  This program is free software; you can redistribute it and/or modify
+   5           *  it under the terms of the GNU General Public License as published by
+   6           *  the Free Software Foundation; either version 2 of the License, or
+   7           *  (at your option) any later version.
+   8           *
+   9           *  This program is distributed in the hope that it will be useful,
+  10           *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  11           *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  12           *  GNU General Public License for more details.
+  13           *
+  14           *  You should have received a copy of the GNU General Public License
+  15           *  along with this program; if not, write to the Free Software
+  16           *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  17           *
+  18           *  Olivier MATZ <zer0@droids-corp.org> 
+  19           *      Fay??al GUENNAR <f.guennar@gmail.com>
+  20           *      Olivier TELEMAQUE <telemaque.olivier@gmail.com>
+  21           */
+  22           
+  23          #include "control_system_manager.h"
+  24          #include "options.h"
+  25          #include <string.h>
+  26          
+  27          void cs_init(struct cs* cs, char process_out) 
+  28          {
+  29   1              cs->process_out = process_out; //0 = ANGLE ou 1 = DISTANCE
+  30   1              cs->prev_process_out_value = 0;
+  31   1              cs->consign_value = 0;
+  32   1              cs->filtered_consign_value = 0;
+  33   1              cs->error_value = 0;
+  34   1              cs->out_value = 0;
+  35   1              cs->speed = 0;
+  36   1              
+  37   1              pid_init(&cs->correct_filter_params);
+  38   1              
+  39   1              if(process_out==PROCESS_ANGLE)
+  40   1                      speed_filter_init(&cs->consign_filter_params, A_SPEED_POS, A_SPEED_NEG, A_ACC_POS, A_ACC_NEG);
+  41   1              else
+  42   1                      speed_filter_init(&cs->consign_filter_params, D_SPEED_POS, D_SPEED_NEG, D_ACC_POS, D_ACC_NEG);
+  43   1      }
+  44          
+  45          void  cs_do_process(struct cs* cs, struct robot_system* rs) 
+  46          {
+  47   1              speed_filter_do_filter(&cs->consign_filter_params, &cs->filtered_consign_value);
+  48   1      
+  49   1          if (cs->process_out == PROCESS_DISTANCE)
+  50   1              {
+  51   2              cs->prev_process_out_value = rs->pext_prev.distance;
+  52   2              }
+  53   1          else
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 2   
+
+  54   1              { //PROCESS_ANGLE
+  55   2              cs->prev_process_out_value = rs->pext_prev.angle; 
+  56   2          }
+  57   1      #ifndef NO_SPEED_FILTER
+  58   1          cs->error_value = cs->filtered_consign_value - cs->prev_process_out_value + cs->first_value;
+  59   1      #else 
+                      cs->error_value = cs->consign_value - cs->prev_process_out_value;
+              #endif
+  62   1          cs->out_value = pid_do_filter(&cs->correct_filter_params, cs->error_value);
+  63   1      
+  64   1              if(cs->process_out == PROCESS_DISTANCE)
+  65   1                      rs_set_distance(rs, cs->out_value);
+  66   1              else
+  67   1                      rs_set_angle(rs, cs->out_value);
+  68   1      }
+  69          
+  70          void cs_set_consign(struct cs* cs, int32_t* consign, struct robot_system* rs)
+  71          {       
+  72   1              cs->consign_value = *consign;
+  73   1              //New Ramp
+  74   1              if (cs->process_out == PROCESS_DISTANCE)
+  75   1              {
+  76   2                      cs->first_value = *consign - rs->pext_prev.distance;
+  77   2                      
+  78   2                      speed_filter_set_consign(&cs->consign_filter_params, &cs->first_value);
+  79   2                      
+  80   2                      cs->first_value = rs->pext_prev.distance;
+  81   2              }
+  82   1              else
+  83   1              {
+  84   2                      cs->first_value= *consign-rs->pext_prev.angle;
+  85   2                      
+  86   2                      speed_filter_set_consign(&cs->consign_filter_params, &cs->first_value);
+  87   2      
+  88   2                      cs->first_value = rs->pext_prev.angle;
+  89   2              }
+  90   1      }
+  91          void cs_stop(struct cs* cs, struct robot_system* rs)//? ?tudier
+  92          {
+  93   1              speed_filter_stop(&cs->consign_filter_params);
+  94   1              
+  95   1              if(cs->process_out == PROCESS_DISTANCE)
+  96   1              {
+  97   2                      #ifndef NEW_RAMP
+                                      cs->consign_value = (cs->consign_filter_params.consign >> 10) + rs->pext_prev.distance;
+                                      cs->first_value = rs->pext_prev.distance;
+                              #else
+ 101   2                              cs->consign_value = /*cs->consign_filter_params.consign - cs->consign_filter_params.prev_out + rs->pext
+             -_prev.distance*/cs->consign_filter_params.consign +cs->first_value;
+ 102   2                              //cs->first_value=rs->pext_prev.distance;
+ 103   2                      #endif
+ 104   2              }
+ 105   1              else
+ 106   1              {
+ 107   2                      #ifndef NEW_RAMP
+                                      cs->consign_value = (cs->consign_filter_params.consign >> 10) + rs->pext_prev.angle;
+                                      cs->first_value = rs->pext_prev.angle;
+                              #else
+ 111   2                              cs->consign_value = cs->consign_filter_params.consign +cs->first_value;
+ 112   2                      #endif
+ 113   2              }
+ 114   1      }
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 3   
+
+*** WARNING C280 IN LINE 91 OF .\control_system_manager.c: 'rs': unreferenced local variable
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 4   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION _cs_init (BEGIN)
+                                           ; SOURCE LINE # 27
+0000 900000      R     MOV     DPTR,#cs
+0003 120000      E     LCALL   ?C?PSTXDATA
+0006 900000      R     MOV     DPTR,#process_out
+0009 ED                MOV     A,R5
+000A F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 28
+                                           ; SOURCE LINE # 29
+000B 900000      R     MOV     DPTR,#process_out
+000E E0                MOVX    A,@DPTR
+000F FF                MOV     R7,A
+0010 900000      R     MOV     DPTR,#cs
+0013 120000      E     LCALL   ?C?PLDXDATA
+0016 E9                MOV     A,R1
+0017 2441              ADD     A,#041H
+0019 F9                MOV     R1,A
+001A EA                MOV     A,R2
+001B 3400              ADDC    A,#00H
+001D FA                MOV     R2,A
+001E EF                MOV     A,R7
+001F 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 30
+0022 7F00              MOV     R7,#00H
+0024 7E00              MOV     R6,#00H
+0026 7D00              MOV     R5,#00H
+0028 7C00              MOV     R4,#00H
+002A 900000      R     MOV     DPTR,#cs
+002D 120000      E     LCALL   ?C?PLDXDATA
+0030 E9                MOV     A,R1
+0031 2442              ADD     A,#042H
+0033 F9                MOV     R1,A
+0034 EA                MOV     A,R2
+0035 3400              ADDC    A,#00H
+0037 FA                MOV     R2,A
+0038 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 31
+003B 7F00              MOV     R7,#00H
+003D 7E00              MOV     R6,#00H
+003F 7D00              MOV     R5,#00H
+0041 7C00              MOV     R4,#00H
+0043 900000      R     MOV     DPTR,#cs
+0046 120000      E     LCALL   ?C?PLDXDATA
+0049 E9                MOV     A,R1
+004A 244A              ADD     A,#04AH
+004C F9                MOV     R1,A
+004D EA                MOV     A,R2
+004E 3400              ADDC    A,#00H
+0050 FA                MOV     R2,A
+0051 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 32
+0054 7F00              MOV     R7,#00H
+0056 7E00              MOV     R6,#00H
+0058 7D00              MOV     R5,#00H
+005A 7C00              MOV     R4,#00H
+005C 900000      R     MOV     DPTR,#cs
+005F 120000      E     LCALL   ?C?PLDXDATA
+0062 E9                MOV     A,R1
+0063 244E              ADD     A,#04EH
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 5   
+
+0065 F9                MOV     R1,A
+0066 EA                MOV     A,R2
+0067 3400              ADDC    A,#00H
+0069 FA                MOV     R2,A
+006A 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 33
+006D 7F00              MOV     R7,#00H
+006F 7E00              MOV     R6,#00H
+0071 7D00              MOV     R5,#00H
+0073 7C00              MOV     R4,#00H
+0075 900000      R     MOV     DPTR,#cs
+0078 120000      E     LCALL   ?C?PLDXDATA
+007B E9                MOV     A,R1
+007C 2452              ADD     A,#052H
+007E F9                MOV     R1,A
+007F EA                MOV     A,R2
+0080 3400              ADDC    A,#00H
+0082 FA                MOV     R2,A
+0083 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 34
+0086 7F00              MOV     R7,#00H
+0088 7E00              MOV     R6,#00H
+008A 7D00              MOV     R5,#00H
+008C 7C00              MOV     R4,#00H
+008E 900000      R     MOV     DPTR,#cs
+0091 120000      E     LCALL   ?C?PLDXDATA
+0094 E9                MOV     A,R1
+0095 2456              ADD     A,#056H
+0097 F9                MOV     R1,A
+0098 EA                MOV     A,R2
+0099 3400              ADDC    A,#00H
+009B FA                MOV     R2,A
+009C 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 35
+009F 900000      R     MOV     DPTR,#cs
+00A2 120000      E     LCALL   ?C?PLDXDATA
+00A5 E9                MOV     A,R1
+00A6 245A              ADD     A,#05AH
+00A8 F9                MOV     R1,A
+00A9 EA                MOV     A,R2
+00AA 3400              ADDC    A,#00H
+00AC FA                MOV     R2,A
+00AD E4                CLR     A
+00AE 75F000            MOV     B,#00H
+00B1 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 37
+00B4 900000      R     MOV     DPTR,#cs
+00B7 120000      E     LCALL   ?C?PLDXDATA
+00BA E9                MOV     A,R1
+00BB 2424              ADD     A,#024H
+00BD F9                MOV     R1,A
+00BE EA                MOV     A,R2
+00BF 3400              ADDC    A,#00H
+00C1 FA                MOV     R2,A
+00C2 120000      E     LCALL   _pid_init
+                                           ; SOURCE LINE # 39
+00C5 900000      R     MOV     DPTR,#process_out
+00C8 E0                MOVX    A,@DPTR
+00C9 FF                MOV     R7,A
+00CA EF                MOV     A,R7
+00CB B40233            CJNE    A,#02H,?C0001
+                                           ; SOURCE LINE # 40
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 6   
+
+00CE 900000      R     MOV     DPTR,#cs
+00D1 120000      E     LCALL   ?C?PLDXDATA
+00D4 900000      E     MOV     DPTR,#?_speed_filter_init?BYTE+05H
+00D7 E4                CLR     A
+00D8 F0                MOVX    @DPTR,A
+00D9 A3                INC     DPTR
+00DA 7419              MOV     A,#019H
+00DC F0                MOVX    @DPTR,A
+00DD 7F83              MOV     R7,#083H
+00DF 7EAC              MOV     R6,#0ACH
+00E1 7D46              MOV     R5,#046H
+00E3 7C3E              MOV     R4,#03EH
+00E5 900000      E     MOV     DPTR,#?_speed_filter_init?BYTE+07H
+00E8 120000      E     LCALL   ?C?LSTXDATA
+00EB 7F83              MOV     R7,#083H
+00ED 7EAC              MOV     R6,#0ACH
+00EF 7D46              MOV     R5,#046H
+00F1 7C3E              MOV     R4,#03EH
+00F3 900000      E     MOV     DPTR,#?_speed_filter_init?BYTE+0BH
+00F6 120000      E     LCALL   ?C?LSTXDATA
+00F9 7D19              MOV     R5,#019H
+00FB 7C00              MOV     R4,#00H
+00FD 120000      E     LCALL   _speed_filter_init
+0100 22                RET     
+0101         ?C0001:
+                                           ; SOURCE LINE # 42
+0101 900000      R     MOV     DPTR,#cs
+0104 120000      E     LCALL   ?C?PLDXDATA
+0107 900000      E     MOV     DPTR,#?_speed_filter_init?BYTE+05H
+010A E4                CLR     A
+010B F0                MOVX    @DPTR,A
+010C A3                INC     DPTR
+010D 740A              MOV     A,#0AH
+010F F0                MOVX    @DPTR,A
+0110 7F62              MOV     R7,#062H
+0112 7E01              MOV     R6,#01H
+0114 7D15              MOV     R5,#015H
+0116 7C3F              MOV     R4,#03FH
+0118 900000      E     MOV     DPTR,#?_speed_filter_init?BYTE+07H
+011B 120000      E     LCALL   ?C?LSTXDATA
+011E 7F62              MOV     R7,#062H
+0120 7E01              MOV     R6,#01H
+0122 7D15              MOV     R5,#015H
+0124 7C3F              MOV     R4,#03FH
+0126 900000      E     MOV     DPTR,#?_speed_filter_init?BYTE+0BH
+0129 120000      E     LCALL   ?C?LSTXDATA
+012C 7D0A              MOV     R5,#0AH
+012E 7C00              MOV     R4,#00H
+0130 120000      E     LCALL   _speed_filter_init
+                                           ; SOURCE LINE # 43
+0133         ?C0003:
+0133 22                RET     
+             ; FUNCTION _cs_init (END)
+
+             ; FUNCTION _cs_do_process (BEGIN)
+                                           ; SOURCE LINE # 45
+0000 900000      R     MOV     DPTR,#cs
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 46
+                                           ; SOURCE LINE # 47
+0006 900000      R     MOV     DPTR,#cs
+0009 120000      E     LCALL   ?C?PLDXDATA
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 7   
+
+000C C003              PUSH    AR3
+000E C002              PUSH    AR2
+0010 C001              PUSH    AR1
+0012 900000      R     MOV     DPTR,#cs
+0015 120000      E     LCALL   ?C?PLDXDATA
+0018 E9                MOV     A,R1
+0019 244E              ADD     A,#04EH
+001B F9                MOV     R1,A
+001C EA                MOV     A,R2
+001D 3400              ADDC    A,#00H
+001F FA                MOV     R2,A
+0020 900000      E     MOV     DPTR,#?_speed_filter_do_filter?BYTE+03H
+0023 120000      E     LCALL   ?C?PSTXDATA
+0026 D001              POP     AR1
+0028 D002              POP     AR2
+002A D003              POP     AR3
+002C 120000      E     LCALL   _speed_filter_do_filter
+                                           ; SOURCE LINE # 49
+002F 900000      R     MOV     DPTR,#cs
+0032 120000      E     LCALL   ?C?PLDXDATA
+0035 E9                MOV     A,R1
+0036 2441              ADD     A,#041H
+0038 F9                MOV     R1,A
+0039 EA                MOV     A,R2
+003A 3400              ADDC    A,#00H
+003C FA                MOV     R2,A
+003D 120000      E     LCALL   ?C?CLDPTR
+0040 FF                MOV     R7,A
+0041 EF                MOV     A,R7
+0042 B4011C            CJNE    A,#01H,?C0004
+                                           ; SOURCE LINE # 50
+                                           ; SOURCE LINE # 51
+0045 900000      R     MOV     DPTR,#rs
+0048 120000      E     LCALL   ?C?PLDXDATA
+004B 120000      E     LCALL   ?C?LLDPTR
+004E 900000      R     MOV     DPTR,#cs
+0051 120000      E     LCALL   ?C?PLDXDATA
+0054 E9                MOV     A,R1
+0055 2442              ADD     A,#042H
+0057 F9                MOV     R1,A
+0058 EA                MOV     A,R2
+0059 3400              ADDC    A,#00H
+005B FA                MOV     R2,A
+005C 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 52
+005F 8022              SJMP    ?C0005
+0061         ?C0004:
+                                           ; SOURCE LINE # 54
+                                           ; SOURCE LINE # 55
+0061 900000      R     MOV     DPTR,#rs
+0064 120000      E     LCALL   ?C?PLDXDATA
+0067 E9                MOV     A,R1
+0068 2404              ADD     A,#04H
+006A F9                MOV     R1,A
+006B EA                MOV     A,R2
+006C 3400              ADDC    A,#00H
+006E FA                MOV     R2,A
+006F 120000      E     LCALL   ?C?LLDPTR
+0072 900000      R     MOV     DPTR,#cs
+0075 120000      E     LCALL   ?C?PLDXDATA
+0078 E9                MOV     A,R1
+0079 2442              ADD     A,#042H
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 8   
+
+007B F9                MOV     R1,A
+007C EA                MOV     A,R2
+007D 3400              ADDC    A,#00H
+007F FA                MOV     R2,A
+0080 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 56
+0083         ?C0005:
+                                           ; SOURCE LINE # 58
+0083 900000      R     MOV     DPTR,#cs
+0086 120000      E     LCALL   ?C?PLDXDATA
+0089 E9                MOV     A,R1
+008A 2442              ADD     A,#042H
+008C F9                MOV     R1,A
+008D EA                MOV     A,R2
+008E 3400              ADDC    A,#00H
+0090 FA                MOV     R2,A
+0091 120000      E     LCALL   ?C?LLDPTR0
+0094 C000              PUSH    AR0
+0096 C001              PUSH    AR1
+0098 C002              PUSH    AR2
+009A C003              PUSH    AR3
+009C 900000      R     MOV     DPTR,#cs
+009F 120000      E     LCALL   ?C?PLDXDATA
+00A2 E9                MOV     A,R1
+00A3 244E              ADD     A,#04EH
+00A5 F9                MOV     R1,A
+00A6 EA                MOV     A,R2
+00A7 3400              ADDC    A,#00H
+00A9 FA                MOV     R2,A
+00AA 120000      E     LCALL   ?C?LLDPTR
+00AD D003              POP     AR3
+00AF D002              POP     AR2
+00B1 D001              POP     AR1
+00B3 D000              POP     AR0
+00B5 120000      E     LCALL   ?C?LSUB
+00B8 900000      R     MOV     DPTR,#cs
+00BB 120000      E     LCALL   ?C?PLDXDATA
+00BE E9                MOV     A,R1
+00BF 2446              ADD     A,#046H
+00C1 F9                MOV     R1,A
+00C2 EA                MOV     A,R2
+00C3 3400              ADDC    A,#00H
+00C5 FA                MOV     R2,A
+00C6 120000      E     LCALL   ?C?LLDPTR0
+00C9 120000      E     LCALL   ?C?LADD
+00CC 900000      R     MOV     DPTR,#cs
+00CF 120000      E     LCALL   ?C?PLDXDATA
+00D2 E9                MOV     A,R1
+00D3 2452              ADD     A,#052H
+00D5 F9                MOV     R1,A
+00D6 EA                MOV     A,R2
+00D7 3400              ADDC    A,#00H
+00D9 FA                MOV     R2,A
+00DA 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 62
+00DD 900000      R     MOV     DPTR,#cs
+00E0 120000      E     LCALL   ?C?PLDXDATA
+00E3 E9                MOV     A,R1
+00E4 2424              ADD     A,#024H
+00E6 F9                MOV     R1,A
+00E7 EA                MOV     A,R2
+00E8 3400              ADDC    A,#00H
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 9   
+
+00EA FA                MOV     R2,A
+00EB C003              PUSH    AR3
+00ED C002              PUSH    AR2
+00EF C001              PUSH    AR1
+00F1 900000      R     MOV     DPTR,#cs
+00F4 120000      E     LCALL   ?C?PLDXDATA
+00F7 E9                MOV     A,R1
+00F8 2452              ADD     A,#052H
+00FA F9                MOV     R1,A
+00FB EA                MOV     A,R2
+00FC 3400              ADDC    A,#00H
+00FE FA                MOV     R2,A
+00FF 120000      E     LCALL   ?C?LLDPTR
+0102 D001              POP     AR1
+0104 D002              POP     AR2
+0106 D003              POP     AR3
+0108 120000      E     LCALL   _pid_do_filter
+010B 900000      R     MOV     DPTR,#cs
+010E 120000      E     LCALL   ?C?PLDXDATA
+0111 E9                MOV     A,R1
+0112 2456              ADD     A,#056H
+0114 F9                MOV     R1,A
+0115 EA                MOV     A,R2
+0116 3400              ADDC    A,#00H
+0118 FA                MOV     R2,A
+0119 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 64
+011C 900000      R     MOV     DPTR,#cs
+011F 120000      E     LCALL   ?C?PLDXDATA
+0122 E9                MOV     A,R1
+0123 2441              ADD     A,#041H
+0125 F9                MOV     R1,A
+0126 EA                MOV     A,R2
+0127 3400              ADDC    A,#00H
+0129 FA                MOV     R2,A
+012A 120000      E     LCALL   ?C?CLDPTR
+012D FF                MOV     R7,A
+012E EF                MOV     A,R7
+012F B40127            CJNE    A,#01H,?C0006
+                                           ; SOURCE LINE # 65
+0132 900000      R     MOV     DPTR,#rs
+0135 120000      E     LCALL   ?C?PLDXDATA
+0138 C003              PUSH    AR3
+013A C002              PUSH    AR2
+013C C001              PUSH    AR1
+013E 900000      R     MOV     DPTR,#cs
+0141 120000      E     LCALL   ?C?PLDXDATA
+0144 E9                MOV     A,R1
+0145 2456              ADD     A,#056H
+0147 F9                MOV     R1,A
+0148 EA                MOV     A,R2
+0149 3400              ADDC    A,#00H
+014B FA                MOV     R2,A
+014C 120000      E     LCALL   ?C?LLDPTR
+014F D001              POP     AR1
+0151 D002              POP     AR2
+0153 D003              POP     AR3
+0155 120000      E     LCALL   _rs_set_distance
+0158 22                RET     
+0159         ?C0006:
+                                           ; SOURCE LINE # 67
+0159 900000      R     MOV     DPTR,#rs
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 10  
+
+015C 120000      E     LCALL   ?C?PLDXDATA
+015F C003              PUSH    AR3
+0161 C002              PUSH    AR2
+0163 C001              PUSH    AR1
+0165 900000      R     MOV     DPTR,#cs
+0168 120000      E     LCALL   ?C?PLDXDATA
+016B E9                MOV     A,R1
+016C 2456              ADD     A,#056H
+016E F9                MOV     R1,A
+016F EA                MOV     A,R2
+0170 3400              ADDC    A,#00H
+0172 FA                MOV     R2,A
+0173 120000      E     LCALL   ?C?LLDPTR
+0176 D001              POP     AR1
+0178 D002              POP     AR2
+017A D003              POP     AR3
+017C 120000      E     LCALL   _rs_set_angle
+                                           ; SOURCE LINE # 68
+017F         ?C0008:
+017F 22                RET     
+             ; FUNCTION _cs_do_process (END)
+
+             ; FUNCTION _cs_set_consign (BEGIN)
+                                           ; SOURCE LINE # 70
+0000 900000      R     MOV     DPTR,#cs
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 71
+                                           ; SOURCE LINE # 72
+0006 900000      R     MOV     DPTR,#consign
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C 120000      E     LCALL   ?C?LLDPTR
+000F 900000      R     MOV     DPTR,#cs
+0012 120000      E     LCALL   ?C?PLDXDATA
+0015 E9                MOV     A,R1
+0016 244A              ADD     A,#04AH
+0018 F9                MOV     R1,A
+0019 EA                MOV     A,R2
+001A 3400              ADDC    A,#00H
+001C FA                MOV     R2,A
+001D 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 74
+0020 900000      R     MOV     DPTR,#cs
+0023 120000      E     LCALL   ?C?PLDXDATA
+0026 E9                MOV     A,R1
+0027 2441              ADD     A,#041H
+0029 F9                MOV     R1,A
+002A EA                MOV     A,R2
+002B 3400              ADDC    A,#00H
+002D FA                MOV     R2,A
+002E 120000      E     LCALL   ?C?CLDPTR
+0031 FF                MOV     R7,A
+0032 EF                MOV     A,R7
+0033 6401              XRL     A,#01H
+0035 707A              JNZ     ?C0009
+                                           ; SOURCE LINE # 75
+                                           ; SOURCE LINE # 76
+0037 900000      R     MOV     DPTR,#rs
+003A 120000      E     LCALL   ?C?PLDXDATA
+003D 120000      E     LCALL   ?C?LLDPTR0
+0040 C000              PUSH    AR0
+0042 C001              PUSH    AR1
+0044 C002              PUSH    AR2
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 11  
+
+0046 C003              PUSH    AR3
+0048 900000      R     MOV     DPTR,#consign
+004B 120000      E     LCALL   ?C?PLDXDATA
+004E 120000      E     LCALL   ?C?LLDPTR
+0051 D003              POP     AR3
+0053 D002              POP     AR2
+0055 D001              POP     AR1
+0057 D000              POP     AR0
+0059 120000      E     LCALL   ?C?LSUB
+005C 900000      R     MOV     DPTR,#cs
+005F 120000      E     LCALL   ?C?PLDXDATA
+0062 E9                MOV     A,R1
+0063 2446              ADD     A,#046H
+0065 F9                MOV     R1,A
+0066 EA                MOV     A,R2
+0067 3400              ADDC    A,#00H
+0069 FA                MOV     R2,A
+006A 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 78
+006D 900000      R     MOV     DPTR,#cs
+0070 120000      E     LCALL   ?C?PLDXDATA
+0073 C003              PUSH    AR3
+0075 C002              PUSH    AR2
+0077 C001              PUSH    AR1
+0079 900000      R     MOV     DPTR,#cs
+007C 120000      E     LCALL   ?C?PLDXDATA
+007F E9                MOV     A,R1
+0080 2446              ADD     A,#046H
+0082 F9                MOV     R1,A
+0083 EA                MOV     A,R2
+0084 3400              ADDC    A,#00H
+0086 FA                MOV     R2,A
+0087 900000      E     MOV     DPTR,#?_speed_filter_set_consign?BYTE+03H
+008A 120000      E     LCALL   ?C?PSTXDATA
+008D D001              POP     AR1
+008F D002              POP     AR2
+0091 D003              POP     AR3
+0093 120000      E     LCALL   _speed_filter_set_consign
+                                           ; SOURCE LINE # 80
+0096 900000      R     MOV     DPTR,#rs
+0099 120000      E     LCALL   ?C?PLDXDATA
+009C 120000      E     LCALL   ?C?LLDPTR
+009F 900000      R     MOV     DPTR,#cs
+00A2 120000      E     LCALL   ?C?PLDXDATA
+00A5 E9                MOV     A,R1
+00A6 2446              ADD     A,#046H
+00A8 F9                MOV     R1,A
+00A9 EA                MOV     A,R2
+00AA 3400              ADDC    A,#00H
+00AC FA                MOV     R2,A
+00AD 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 81
+00B0 22                RET     
+00B1         ?C0009:
+                                           ; SOURCE LINE # 83
+                                           ; SOURCE LINE # 84
+00B1 900000      R     MOV     DPTR,#rs
+00B4 120000      E     LCALL   ?C?PLDXDATA
+00B7 E9                MOV     A,R1
+00B8 2404              ADD     A,#04H
+00BA F9                MOV     R1,A
+00BB EA                MOV     A,R2
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 12  
+
+00BC 3400              ADDC    A,#00H
+00BE FA                MOV     R2,A
+00BF 120000      E     LCALL   ?C?LLDPTR0
+00C2 C000              PUSH    AR0
+00C4 C001              PUSH    AR1
+00C6 C002              PUSH    AR2
+00C8 C003              PUSH    AR3
+00CA 900000      R     MOV     DPTR,#consign
+00CD 120000      E     LCALL   ?C?PLDXDATA
+00D0 120000      E     LCALL   ?C?LLDPTR
+00D3 D003              POP     AR3
+00D5 D002              POP     AR2
+00D7 D001              POP     AR1
+00D9 D000              POP     AR0
+00DB 120000      E     LCALL   ?C?LSUB
+00DE 900000      R     MOV     DPTR,#cs
+00E1 120000      E     LCALL   ?C?PLDXDATA
+00E4 E9                MOV     A,R1
+00E5 2446              ADD     A,#046H
+00E7 F9                MOV     R1,A
+00E8 EA                MOV     A,R2
+00E9 3400              ADDC    A,#00H
+00EB FA                MOV     R2,A
+00EC 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 86
+00EF 900000      R     MOV     DPTR,#cs
+00F2 120000      E     LCALL   ?C?PLDXDATA
+00F5 C003              PUSH    AR3
+00F7 C002              PUSH    AR2
+00F9 C001              PUSH    AR1
+00FB 900000      R     MOV     DPTR,#cs
+00FE 120000      E     LCALL   ?C?PLDXDATA
+0101 E9                MOV     A,R1
+0102 2446              ADD     A,#046H
+0104 F9                MOV     R1,A
+0105 EA                MOV     A,R2
+0106 3400              ADDC    A,#00H
+0108 FA                MOV     R2,A
+0109 900000      E     MOV     DPTR,#?_speed_filter_set_consign?BYTE+03H
+010C 120000      E     LCALL   ?C?PSTXDATA
+010F D001              POP     AR1
+0111 D002              POP     AR2
+0113 D003              POP     AR3
+0115 120000      E     LCALL   _speed_filter_set_consign
+                                           ; SOURCE LINE # 88
+0118 900000      R     MOV     DPTR,#rs
+011B 120000      E     LCALL   ?C?PLDXDATA
+011E E9                MOV     A,R1
+011F 2404              ADD     A,#04H
+0121 F9                MOV     R1,A
+0122 EA                MOV     A,R2
+0123 3400              ADDC    A,#00H
+0125 FA                MOV     R2,A
+0126 120000      E     LCALL   ?C?LLDPTR
+0129 900000      R     MOV     DPTR,#cs
+012C 120000      E     LCALL   ?C?PLDXDATA
+012F E9                MOV     A,R1
+0130 2446              ADD     A,#046H
+0132 F9                MOV     R1,A
+0133 EA                MOV     A,R2
+0134 3400              ADDC    A,#00H
+0136 FA                MOV     R2,A
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 13  
+
+0137 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 89
+                                           ; SOURCE LINE # 90
+013A         ?C0011:
+013A 22                RET     
+             ; FUNCTION _cs_set_consign (END)
+
+             ; FUNCTION _cs_stop (BEGIN)
+                                           ; SOURCE LINE # 91
+0000 900000      R     MOV     DPTR,#cs
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 92
+                                           ; SOURCE LINE # 93
+0006 900000      R     MOV     DPTR,#cs
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C 120000      E     LCALL   _speed_filter_stop
+                                           ; SOURCE LINE # 95
+000F 900000      R     MOV     DPTR,#cs
+0012 120000      E     LCALL   ?C?PLDXDATA
+0015 E9                MOV     A,R1
+0016 2441              ADD     A,#041H
+0018 F9                MOV     R1,A
+0019 EA                MOV     A,R2
+001A 3400              ADDC    A,#00H
+001C FA                MOV     R2,A
+001D 120000      E     LCALL   ?C?CLDPTR
+0020 FF                MOV     R7,A
+0021 EF                MOV     A,R7
+0022 B40137            CJNE    A,#01H,?C0012
+                                           ; SOURCE LINE # 96
+                                           ; SOURCE LINE # 101
+0025 900000      R     MOV     DPTR,#cs
+0028 120000      E     LCALL   ?C?PLDXDATA
+002B E9                MOV     A,R1
+002C 2446              ADD     A,#046H
+002E F9                MOV     R1,A
+002F EA                MOV     A,R2
+0030 3400              ADDC    A,#00H
+0032 FA                MOV     R2,A
+0033 120000      E     LCALL   ?C?LLDPTR
+0036 900000      R     MOV     DPTR,#cs
+0039 120000      E     LCALL   ?C?PLDXDATA
+003C E9                MOV     A,R1
+003D 240C              ADD     A,#0CH
+003F F9                MOV     R1,A
+0040 EA                MOV     A,R2
+0041 3400              ADDC    A,#00H
+0043 FA                MOV     R2,A
+0044 120000      E     LCALL   ?C?LLDPTR0
+0047 120000      E     LCALL   ?C?LADD
+004A 900000      R     MOV     DPTR,#cs
+004D 120000      E     LCALL   ?C?PLDXDATA
+0050 E9                MOV     A,R1
+0051 244A              ADD     A,#04AH
+0053 F9                MOV     R1,A
+0054 EA                MOV     A,R2
+0055 3400              ADDC    A,#00H
+0057 FA                MOV     R2,A
+0058 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 104
+005B 22                RET     
+005C         ?C0012:
+C51 COMPILER V9.03   CONTROL_SYSTEM_MANAGER                                                05/13/2012 22:25:52 PAGE 14  
+
+                                           ; SOURCE LINE # 106
+                                           ; SOURCE LINE # 111
+005C 900000      R     MOV     DPTR,#cs
+005F 120000      E     LCALL   ?C?PLDXDATA
+0062 E9                MOV     A,R1
+0063 2446              ADD     A,#046H
+0065 F9                MOV     R1,A
+0066 EA                MOV     A,R2
+0067 3400              ADDC    A,#00H
+0069 FA                MOV     R2,A
+006A 120000      E     LCALL   ?C?LLDPTR
+006D 900000      R     MOV     DPTR,#cs
+0070 120000      E     LCALL   ?C?PLDXDATA
+0073 E9                MOV     A,R1
+0074 240C              ADD     A,#0CH
+0076 F9                MOV     R1,A
+0077 EA                MOV     A,R2
+0078 3400              ADDC    A,#00H
+007A FA                MOV     R2,A
+007B 120000      E     LCALL   ?C?LLDPTR0
+007E 120000      E     LCALL   ?C?LADD
+0081 900000      R     MOV     DPTR,#cs
+0084 120000      E     LCALL   ?C?PLDXDATA
+0087 E9                MOV     A,R1
+0088 244A              ADD     A,#04AH
+008A F9                MOV     R1,A
+008B EA                MOV     A,R2
+008C 3400              ADDC    A,#00H
+008E FA                MOV     R2,A
+008F 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 113
+                                           ; SOURCE LINE # 114
+0092         ?C0014:
+0092 22                RET     
+             ; FUNCTION _cs_stop (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1154    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----      25
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)

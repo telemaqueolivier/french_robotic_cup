@@ -1,0 +1,121 @@
+# asservissement
+# 2012-05-13 20:25:44Z
+
+# IO_0@[IOP=(1)][IoId=(0)] is reserved: SWDDebugEnabled
+dont_use_io iocell 1 0
+# IO_1@[IOP=(1)][IoId=(1)] is reserved: SWDDebugEnabled
+dont_use_io iocell 1 1
+# IO_3@[IOP=(1)][IoId=(3)] is reserved: SWDDebugEnabled
+dont_use_io iocell 1 3
+set_location "ClockBlock" clockblockcell -1 -1 0
+set_location "Net_2" 3 3 1 0
+set_location "Net_203" 3 1 0 3
+set_location "Net_204" 3 1 1 1
+set_location "Net_205" 3 1 1 2
+set_location "Net_206" 3 1 1 3
+set_location "Net_36" 2 5 1 3
+set_location "\pwm_left:PWMHW\" timercell -1 -1 0
+set_location "\pwm_left_control_reg:ctrl_reg\" 2 1 6
+set_location "\pwm_right:PWMHW\" timercell -1 -1 1
+set_location "\pwm_right_control_reg:ctrl_reg\" 3 1 6
+set_location "\quaddec_left:Cnt16:CounterUDB:final_enable\" 0 3 0 2
+set_location "\quaddec_left:Cnt16:CounterUDB:prevCompare\" 0 4 1 3
+set_location "\quaddec_left:Cnt16:CounterUDB:reload\" 1 3 0 2
+set_location "\quaddec_left:Cnt16:CounterUDB:sC16:counterdp:u0\" 1 4 2
+set_location "\quaddec_left:Cnt16:CounterUDB:sC16:counterdp:u1\" 0 4 2
+set_location "\quaddec_left:Cnt16:CounterUDB:sCTRLReg:ctrlreg\" 0 3 6
+set_location "\quaddec_left:Cnt16:CounterUDB:sSTSReg:rstSts:stsreg\" 0 4 4
+set_location "\quaddec_left:Cnt16:CounterUDB:status_0\" 1 4 0 3
+set_location "\quaddec_left:Net_1163\" 0 3 0 0
+set_location "\quaddec_left:Net_1163_split\" 0 3 1 0
+set_location "\quaddec_left:Net_1195\" 1 3 0 1
+set_location "\quaddec_left:Net_1203\" 0 3 0 1
+set_location "\quaddec_left:Net_530\" 1 4 1 3
+set_location "\quaddec_left:Net_611\" 2 3 0 1
+set_location "\quaddec_left:bQuadDec:Stsreg\" 1 3 4
+set_location "\quaddec_left:bQuadDec:error\" 1 3 1 0
+set_location "\quaddec_left:bQuadDec:quad_A_delayed_0\" 2 2 0 0
+set_location "\quaddec_left:bQuadDec:quad_A_delayed_1\" 2 5 1 1
+set_location "\quaddec_left:bQuadDec:quad_A_delayed_2\" 2 5 1 2
+set_location "\quaddec_left:bQuadDec:quad_A_filt\" 2 5 1 0
+set_location "\quaddec_left:bQuadDec:quad_B_delayed_0\" 2 2 0 1
+set_location "\quaddec_left:bQuadDec:quad_B_delayed_1\" 0 4 1 1
+set_location "\quaddec_left:bQuadDec:quad_B_delayed_2\" 0 4 1 2
+set_location "\quaddec_left:bQuadDec:quad_B_filt\" 0 4 1 0
+set_location "\quaddec_left:bQuadDec:state_0\" 1 3 1 1
+set_location "\quaddec_left:bQuadDec:state_1\" 1 3 0 0
+set_location "\quaddec_left:isr\" interrupt -1 -1 19
+set_location "\quaddec_right:Cnt16:CounterUDB:final_enable\" 1 1 1 2
+set_location "\quaddec_right:Cnt16:CounterUDB:prevCompare\" 2 2 0 2
+set_location "\quaddec_right:Cnt16:CounterUDB:reload\" 1 2 0 2
+set_location "\quaddec_right:Cnt16:CounterUDB:sC16:counterdp:u0\" 2 2 2
+set_location "\quaddec_right:Cnt16:CounterUDB:sC16:counterdp:u1\" 1 2 2
+set_location "\quaddec_right:Cnt16:CounterUDB:sCTRLReg:ctrlreg\" 1 1 6
+set_location "\quaddec_right:Cnt16:CounterUDB:sSTSReg:rstSts:stsreg\" 1 2 4
+set_location "\quaddec_right:Cnt16:CounterUDB:status_0\" 2 3 0 2
+set_location "\quaddec_right:Net_1163\" 1 1 1 0
+set_location "\quaddec_right:Net_1163_split\" 1 1 0 0
+set_location "\quaddec_right:Net_1195\" 1 2 0 1
+set_location "\quaddec_right:Net_1203\" 1 1 1 1
+set_location "\quaddec_right:Net_530\" 2 3 0 3
+set_location "\quaddec_right:Net_611\" 2 2 0 3
+set_location "\quaddec_right:bQuadDec:Stsreg\" 2 2 4
+set_location "\quaddec_right:bQuadDec:error\" 1 2 1 0
+set_location "\quaddec_right:bQuadDec:quad_A_delayed_0\" 2 4 0 0
+set_location "\quaddec_right:bQuadDec:quad_A_delayed_1\" 1 4 0 1
+set_location "\quaddec_right:bQuadDec:quad_A_delayed_2\" 1 4 0 2
+set_location "\quaddec_right:bQuadDec:quad_A_filt\" 1 4 0 0
+set_location "\quaddec_right:bQuadDec:quad_B_delayed_0\" 2 4 0 1
+set_location "\quaddec_right:bQuadDec:quad_B_delayed_1\" 1 4 1 1
+set_location "\quaddec_right:bQuadDec:quad_B_delayed_2\" 1 4 1 2
+set_location "\quaddec_right:bQuadDec:quad_B_filt\" 1 4 1 0
+set_location "\quaddec_right:bQuadDec:state_0\" 1 2 1 1
+set_location "\quaddec_right:bQuadDec:state_1\" 1 2 0 0
+set_location "\quaddec_right:isr\" interrupt -1 -1 24
+set_location "\timer_asserv:TimerUDB:rstSts:stsreg\" 3 4 4
+set_location "\timer_asserv:TimerUDB:sCTRLReg:SyncCtl:ctrlreg\" 2 0 6
+set_location "\timer_asserv:TimerUDB:sT24:timerdp:u0\" 2 5 2
+set_location "\timer_asserv:TimerUDB:sT24:timerdp:u1\" 3 5 2
+set_location "\timer_asserv:TimerUDB:sT24:timerdp:u2\" 3 4 2
+set_location "\timer_asserv:TimerUDB:status_tc\" 2 4 0 2
+set_location "\uart_pc:BUART:counter_load_not\" 3 1 0 2
+set_location "\uart_pc:BUART:pollcount_0\" 2 4 1 1
+set_location "\uart_pc:BUART:pollcount_1\" 2 4 1 0
+set_location "\uart_pc:BUART:rx_bitclk_enable\" 2 3 0 0
+set_location "\uart_pc:BUART:rx_counter_load\" 2 3 1 2
+set_location "\uart_pc:BUART:rx_last\" 3 2 1 0
+set_location "\uart_pc:BUART:rx_load_fifo\" 2 3 1 1
+set_location "\uart_pc:BUART:rx_markspace_pre\" 3 3 1 2
+set_location "\uart_pc:BUART:rx_state_0\" 3 3 0 1
+set_location "\uart_pc:BUART:rx_state_2\" 3 3 0 0
+set_location "\uart_pc:BUART:rx_state_3\" 3 3 0 2
+set_location "\uart_pc:BUART:rx_state_stop1_reg\" 2 3 1 0
+set_location "\uart_pc:BUART:rx_status_3\" 3 3 0 3
+set_location "\uart_pc:BUART:rx_status_4\" 2 3 1 3
+set_location "\uart_pc:BUART:rx_status_5\" 2 4 0 3
+set_location "\uart_pc:BUART:sRX:RxBitCounter\" 2 3 7
+set_location "\uart_pc:BUART:sRX:RxShifter:u0\" 2 3 2
+set_location "\uart_pc:BUART:sRX:RxSts\" 3 3 4
+set_location "\uart_pc:BUART:sTX:TxShifter:u0\" 3 2 2
+set_location "\uart_pc:BUART:sTX:TxSts\" 3 2 4
+set_location "\uart_pc:BUART:sTX:sCLOCK:TxBitClkGen\" 3 1 2
+set_location "\uart_pc:BUART:tx_bitclk\" 3 2 1 1
+set_location "\uart_pc:BUART:tx_bitclk_enable_pre\" 3 2 1 2
+set_location "\uart_pc:BUART:tx_state_0\" 3 1 0 0
+set_location "\uart_pc:BUART:tx_state_1\" 3 3 1 1
+set_location "\uart_pc:BUART:tx_state_2\" 3 1 1 0
+set_location "\uart_pc:BUART:tx_status_0\" 3 1 0 1
+set_location "\uart_pc:BUART:tx_status_2\" 3 2 1 3
+set_location "\uart_pc:RXInternalInterrupt\" interrupt -1 -1 18
+set_location "__ONE__" 0 3 0 3
+set_io "encoder_left_sig_a(0)" iocell 15 1
+set_io "encoder_left_sig_b(0)" iocell 12 2
+set_io "encoder_right_sig_a(0)" iocell 0 6
+set_io "encoder_right_sig_b(0)" iocell 0 5
+set_location "isr_positionning" interrupt -1 -1 4
+set_io "mot_left_backward(0)" iocell 15 2
+set_io "mot_left_forward(0)" iocell 15 3
+set_io "mot_right_backward(0)" iocell 15 0
+set_io "mot_right_forward(0)" iocell 3 5
+set_io "rx_pc(0)" iocell 0 4
+set_io "tx_pc(0)" iocell 12 3

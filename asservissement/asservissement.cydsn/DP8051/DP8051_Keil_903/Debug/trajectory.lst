@@ -1,0 +1,2624 @@
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE TRAJECTORY
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\trajectory.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\traj
+                    -ectory.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\trajectory.lst) CD DB NOIP OT(2,SIZE) INCDIR(Gen
+                    -erated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\trajectory.obj)
+
+line level    source
+
+   1          #include <stdlib.h>
+   2          #include <math.h>
+   3          #include <string.h>
+   4          #include <quaddec_right.h>
+   5          #include <quaddec_left.h>
+   6          #include <uart_pc.h>
+   7          #include "trajectory.h"
+   8          #include "types.h"
+   9          #include "global_variable.h"
+  10          #include "encoders.h"
+  11          #include "position.h"
+  12          
+  13          long int copyconsig; //debug du chgt de traj->target_pol.distance, ne conserve pas sa valeur alors que pas
+             - d'appel à goto_xy 
+  14          
+  15          void trajectory_init(struct trajectory* T)
+  16          {
+  17   1              memset(T, 0, sizeof(struct trajectory));
+  18   1              memset(&T->curr_obj, 0, sizeof(struct cartesian));
+  19   1              rs_init(&T->robot);
+  20   1              cs_init(&T->csm_angle, PROCESS_ANGLE);
+  21   1              cs_init(&T->csm_distance, PROCESS_DISTANCE);
+  22   1              position_init(&T->robot_pos);
+  23   1          T->state = IS_READY;
+  24   1              T->d_win = D_WIN;
+  25   1              T->a_win = A_WIN;
+  26   1              T->t = TIME_ASSERV;
+  27   1              T->time = 0;
+  28   1      }
+  29          
+  30          
+  31          
+  32          #ifndef STRAT_OPTIMIZED
+              void Trajectory_goto_d_a_real(struct Trajectory * traj, double d_mm, 
+                      double a_rad, uint8_t flags) 
+              {
+                      int32_t consigne;
+                      if (flags & UPDATE_A) 
+                      {
+                              if (flags & RESET_A) 
+                              {
+                                      consigne = 0;
+                              }
+                              else 
+                              {
+                                      consigne = (int32_t)(a_rad*TRACK_TOP);
+                              }
+                              consigne+= traj->robot.pext_prev.angle;
+                              cs_set_consign(&traj->csm_angle,&consigne,&traj->robot);
+                      }
+                      if (flags & UPDATE_D) 
+                      {
+                              if (flags & RESET_D) 
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 2   
+
+                              {
+                                      consigne = 0;
+                              }
+                              else
+                              {
+                                      consigne = (int32_t)(d_mm * TOPS_PER_MM);
+                              }
+                              consigne += traj->robot.pext_prev.distance;
+                              cs_set_consign(&traj->csm_distance,&consigne,&traj->robot);
+                      }
+              }
+              #else
+  65          void trajectory_goto_d(struct trajectory* traj, int32_t d) 
+  66          {
+  67   1              traj->target_pol.angle = traj->curr_pos.angle;
+  68   1              traj->target_pol.distance = d + traj->robot.pext_prev.distance;
+  69   1              //copyconsig = traj->target_pol.distance;
+  70   1              cartesian_from_polar(&traj->target_pol, &traj->curr_obj.xy);
+  71   1              traj->state = NEW_TRAJ;
+  72   1      }
+  73                  
+  74          void trajectory_goto_a(struct trajectory* traj, int32_t ang) 
+  75          {
+  76   1      //              int16_t a;
+  77   1      //              a=(traj->curr_pos.angle%TURN_TOP);//actual angle in [-2pi,2pi]
+  78   1      //              if(abs(a)>TURN_TOP/2)//we set it behind [-pi,pi]
+  79   1      //              {
+  80   1      //                      if(a>0)
+  81   1      //                              a-=TURN_TOP;
+  82   1      //                      else
+  83   1      //                              a+=TURN_TOP;
+  84   1      //              }
+  85   1              if(abs(ang) > TURN_TOP / 2)
+  86   1              {
+  87   2                      if(ang > 0)
+  88   2                              traj->target_pol.angle = ang - TURN_TOP;
+  89   2                      else
+  90   2                              traj->target_pol.angle = ang + TURN_TOP;
+  91   2              }
+  92   1              else
+  93   1                      traj->target_pol.angle = ang;
+  94   1                      
+  95   1              traj->curr_pos.xy = traj->curr_pos.xy;//we don't change the xy position
+  96   1              traj->target_pol.angle += traj->curr_pos.angle;
+  97   1              //traj->target_pol.distance=0;
+  98   1              traj->state = NEW_TRAJ; 
+  99   1              
+ 100   1      //              {
+ 101   1      //                      char buff[50];
+ 102   1      //                      
+ 103   1      //                      sprintf ( buff , "target_pol.angle = %ld\r\n" , traj->target_pol.angle );
+ 104   1      //                      UART_1_PutString ( buff );
+ 105   1      //              }
+ 106   1      }
+ 107          
+ 108          void trajectory_goto_a_without_event(struct trajectory* traj, int32_t ang)
+ 109          {
+ 110   1              trajectory_goto_a(traj, ang);
+ 111   1              cs_set_consign(&traj->csm_angle, &traj->target_pol.angle, &traj->robot);
+ 112   1              
+ 113   1              traj->state = IS_READY;
+ 114   1      }
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 3   
+
+ 115          #endif //STRAT_OPTIMIZED
+ 116          
+ 117          //mis à zéro du terme intégral supprimé le 17 04 à tester unitairement
+ 118          void trajectory_update(struct trajectory* traj)
+ 119          {
+ 120   1              static int32_t start_stab_time = 0;//stabilization begining time
+ 121   1              rs_update(&traj->robot);
+ 122   1              process_xy(traj);
+ 123   1              cs_do_process(&traj->csm_angle, &traj->robot);
+ 124   1              cs_do_process(&traj->csm_distance, &traj->robot);
+ 125   1      
+ 126   1              traj->curr_pos.angle = traj->robot.pext_prev.angle;
+ 127   1              
+ 128   1              if(traj->state & STOP_TRAJ)
+ 129   1              {
+ 130   2                      traj->state &= ~STOP_TRAJ;
+ 131   2                      
+ 132   2                      trajectory_stop ( traj , traj->state );//cette fonction ne fonctionne qu'avec NEW_RAMP défini
+ 133   2              }
+ 134   1              
+ 135   1              switch(traj->state & ~NEAR_END)
+ 136   1              {
+ 137   2                      case NEW_TRAJ:
+ 138   2                      
+ 139   2      //                      UART_1_PutString ( "NEW TRAJ\r\n" );
+ 140   2                              cs_set_consign(&traj->csm_angle, &traj->target_pol.angle, &traj->robot);
+ 141   2                              
+ 142   2                              traj->state = DOING_ANGLE;
+ 143   2                      break;
+ 144   2                      case DOING_ANGLE:
+ 145   2                              if(abs(traj->curr_pos.angle - traj->target_pol.angle) < traj->a_win)
+ 146   2                              {
+ 147   3                                      if(traj->state & NEAR_END /*&& time-start_stab_time>STAB_TIME*/)
+ 148   3                                      {
+ 149   4                                              if(traj->time - start_stab_time > STAB_TIME)
+ 150   4                                              {
+ 151   5                                                      traj->state = DOING_DISTANCE;
+ 152   5                                                      //traj->target_pol.distance = copyconsig + traj->robot.pext_prev.distance;//apparemment mal mis à j
+             -our
+ 153   5                                                      
+ 154   5                                                      cs_set_consign(&traj->csm_distance, &traj->target_pol.distance, &traj->robot);
+ 155   5                                              }
+ 156   4                                      }
+ 157   3                                      else
+ 158   3                                      {
+ 159   4                                              traj->state |= NEAR_END;
+ 160   4                                              traj->state &= ~STOP_TRAJ;//sans cette ligne on rentre constamment dans le cas STOP_TRAJ
+ 161   4                                              start_stab_time = traj->time;
+ 162   4                                      }
+ 163   3                              }
+ 164   2                              else
+ 165   2                                      traj->state &= ~NEAR_END;
+ 166   2                      break;
+ 167   2                      case DOING_DISTANCE:
+ 168   2                              if(abs(traj->target_pol.distance - traj->robot.pext_prev.distance) < traj->d_win)
+ 169   2                              {
+ 170   3                                      if((traj->state & NEAR_END) /*&& (time-start_stab_time>STAB_TIME)*/)
+ 171   3                                      {
+ 172   4                                              if(traj->time - start_stab_time > STAB_TIME)
+ 173   4                                              {
+ 174   5                                                      traj->state = IS_READY/*CHECK_XY*/;
+ 175   5                                                      traj->curr_pos.xy = traj->robot_pos.xy;
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 4   
+
+ 176   5                                                      uart_pc_PutString("Traj IS_READY\r\n");
+ 177   5                                              }
+ 178   4                                      }
+ 179   3                                      else
+ 180   3                                      {
+ 181   4                                              traj->state |= NEAR_END;
+ 182   4                                              traj->state &= ~STOP_TRAJ;
+ 183   4                                              start_stab_time = traj->time;
+ 184   4                                      }
+ 185   3                              }
+ 186   2                              else
+ 187   2                                      traj->state &= ~NEAR_END;
+ 188   2                      break;
+ 189   2                      
+ 190   2                      case CHECK_XY :
+ 191   2      //                      UART_1_PutString ( "CHECK_XY\r\n" );
+ 192   2                                                      
+ 193   2      //                      Trajectory_check_xy ( traj );
+ 194   2                      break;
+ 195   2                      
+ 196   2                      default:
+ 197   2                      break;
+ 198   2              }
+ 199   1      }
+ 200          
+ 201          void trajectory_goto_xy(struct trajectory* T, struct cartesian* pos, uint8_t how)
+ 202          {
+ 203   1              struct cartesian s;
+ 204   1              int16_t a;
+ 205   1              
+ 206   1              s.x = pos->x - T->curr_pos.xy.x;
+ 207   1              s.y = pos->y - T->curr_pos.xy.y;
+ 208   1              polar_from_cartesian(&s, &T->target_pol);
+ 209   1      
+ 210   1              //if there's no distance an angle is meaningless
+ 211   1              if(T->target_pol.distance == 0)
+ 212   1              T->target_pol.angle = T->curr_pos.angle;
+ 213   1      
+ 214   1              a = T->curr_pos.angle % (uint16_t)floor(TURN_TOP);//actual angle in [-2pi,2pi]
+ 215   1              
+ 216   1              if(abs(a) > TURN_TOP / 2)//we set it behind [-pi,pi]
+ 217   1              {
+ 218   2                      if(a > 0)
+ 219   2                              a-=TURN_TOP;
+ 220   2                      else
+ 221   2                              a+=TURN_TOP;
+ 222   2              }
+ 223   1      
+ 224   1              if (how == NO_CARE)
+ 225   1              {
+ 226   2                      //we move closer angles
+ 227   2                      if(abs(T->target_pol.angle - a) > TURN_TOP / 2)
+ 228   2                      {
+ 229   3                              if(T->target_pol.angle > 0)
+ 230   3                                      T->target_pol.angle -= TURN_TOP;
+ 231   3                              else
+ 232   3                                      T->target_pol.angle += TURN_TOP;
+ 233   3                      }
+ 234   2                      //is it more interesting to go backward or forward ?
+ 235   2                      if(abs(T->target_pol.angle - a) > TURN_TOP / 4)
+ 236   2                      {//we go backward
+ 237   3                              if(T->target_pol.angle > 0)
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 5   
+
+ 238   3                                      T->target_pol.angle -= TURN_TOP / 2;
+ 239   3                              else
+ 240   3                                      T->target_pol.angle += TURN_TOP / 2;
+ 241   3                              T->target_pol.distance = -T->target_pol.distance;
+ 242   3                      }
+ 243   2              }
+ 244   1              else
+ 245   1              {
+ 246   2                      if (how == BACKWARD)
+ 247   2                      {
+ 248   3                              if(T->target_pol.angle > 0)
+ 249   3                                      T->target_pol.angle -= TURN_TOP / 2;
+ 250   3                              else
+ 251   3                                      T->target_pol.angle += TURN_TOP / 2;
+ 252   3                              T->target_pol.distance = -T->target_pol.distance;
+ 253   3                      }
+ 254   2                      //we move closer angles
+ 255   2                      if(abs(T->target_pol.angle - a) > TURN_TOP / 2)
+ 256   2                      {
+ 257   3                              if(T->target_pol.angle > 0)
+ 258   3                                      T->target_pol.angle -= TURN_TOP;
+ 259   3                              else
+ 260   3                                      T->target_pol.angle += TURN_TOP;
+ 261   3                      }
+ 262   2              }
+ 263   1              //absolute position
+ 264   1              T->target_pol.distance += T->robot.pext_prev.distance;
+ 265   1              //copyconsig = T->target_pol.distance;
+ 266   1              T->curr_obj.xy = *pos;
+ 267   1              T->target_pol.angle += T->curr_pos.angle - a;
+ 268   1              T->state = NEW_TRAJ;
+ 269   1      }
+ 270          
+ 271          void trajectory_stop(struct trajectory* traj, uint8_t flags)
+ 272          {
+ 273   1              switch(flags & ~NEAR_END)
+ 274   1              {
+ 275   2                      case NEW_TRAJ:
+ 276   2                              //cancel traj
+ 277   2                              traj->state = IS_READY;
+ 278   2      //                      UART_1_PutString ( "IS_READY\r\n" );
+ 279   2                              break;
+ 280   2                      case DOING_ANGLE:
+ 281   2                              //finish angle but no distance
+ 282   2                              traj->target_pol.distance = traj->robot.pext_prev.distance;
+ 283   2                              traj->state = DOING_ANGLE;
+ 284   2      //                      UART_1_PutString ( "STOP ANGLE\r\n" );
+ 285   2                              break;
+ 286   2                      case DOING_DISTANCE:
+ 287   2                              //Stop trajectory and actualize position.
+ 288   2                              cs_stop(&traj->csm_distance, &traj->robot);
+ 289   2                              traj->target_pol.distance = traj->csm_distance.consign_value;//ne fonctionne qu'avec NEW_RAMP defini
+ 290   2                              traj->target_pol.angle = traj->csm_angle.consign_value;//à méditer
+ 291   2                              cartesian_from_polar(&traj->target_pol, &traj->curr_obj.xy);
+ 292   2                              traj->state = DOING_DISTANCE;
+ 293   2      //                      UART_1_PutString ( "STOP DISTANCE\r\n" );
+ 294   2                      break;
+ 295   2              }
+ 296   1      }
+ 297          
+ 298          void trajectory_check_xy(struct trajectory* traj)
+ 299          {
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 6   
+
+ 300   1              if(euclidian_distance(&traj->curr_obj.xy, &traj->curr_pos.xy) <= D_XY_WIN)
+ 301   1              {       
+ 302   2      //              UART_1_PutString ( "IS_READY\r\n" );
+ 303   2                      //Trajectory_goto_a_without_event ( traj , traj->curr_obj.angle );
+ 304   2                      traj->state = IS_READY;
+ 305   2              }
+ 306   1              else
+ 307   1                      trajectory_goto_xy(traj, &traj->curr_obj.xy, NO_CARE);
+ 308   1      }
+ 309          
+ 310          void trajectory_goto_xy2(struct trajectory* traj, struct cartesian* pos, uint8_t how, int16_t  d_speed_pos
+             -, int16_t d_speed_neg, double d_acc_pos, double  d_acc_neg, int16_t a_speed_pos, int16_t a_speed_neg, double a_acc_pos, 
+             -double a_acc_neg)
+ 311          {
+ 312   1              speed_filter_set_cinematic_parameter(&traj->csm_distance.consign_filter_params, d_speed_pos, d_speed_neg,
+             - d_acc_pos, d_acc_neg);
+ 313   1              speed_filter_set_cinematic_parameter(&traj->csm_angle.consign_filter_params, a_speed_pos, a_speed_neg, a_
+             -acc_pos, a_acc_neg);
+ 314   1              trajectory_goto_xy(traj, pos, how);
+ 315   1      }
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 7   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION _trajectory_init (BEGIN)
+                                           ; SOURCE LINE # 15
+0000 900000      R     MOV     DPTR,#T
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 16
+                                           ; SOURCE LINE # 17
+0006 7E01              MOV     R6,#01H
+0008 7F12              MOV     R7,#012H
+000A 7D00              MOV     R5,#00H
+000C 900000      R     MOV     DPTR,#T
+000F 120000      E     LCALL   ?C?PLDXDATA
+0012 120000      E     LCALL   ?C?MEMSET
+                                           ; SOURCE LINE # 18
+0015 7E00              MOV     R6,#00H
+0017 7F08              MOV     R7,#08H
+0019 7D00              MOV     R5,#00H
+001B 900000      R     MOV     DPTR,#T
+001E 120000      E     LCALL   ?C?PLDXDATA
+0021 E9                MOV     A,R1
+0022 24EA              ADD     A,#0EAH
+0024 F9                MOV     R1,A
+0025 EA                MOV     A,R2
+0026 3400              ADDC    A,#00H
+0028 FA                MOV     R2,A
+0029 120000      E     LCALL   ?C?MEMSET
+                                           ; SOURCE LINE # 19
+002C 900000      R     MOV     DPTR,#T
+002F 120000      E     LCALL   ?C?PLDXDATA
+0032 E9                MOV     A,R1
+0033 2412              ADD     A,#012H
+0035 F9                MOV     R1,A
+0036 EA                MOV     A,R2
+0037 3400              ADDC    A,#00H
+0039 FA                MOV     R2,A
+003A 120000      E     LCALL   _rs_init
+                                           ; SOURCE LINE # 20
+003D 900000      R     MOV     DPTR,#T
+0040 120000      E     LCALL   ?C?PLDXDATA
+0043 E9                MOV     A,R1
+0044 2432              ADD     A,#032H
+0046 F9                MOV     R1,A
+0047 EA                MOV     A,R2
+0048 3400              ADDC    A,#00H
+004A FA                MOV     R2,A
+004B 7D02              MOV     R5,#02H
+004D 120000      E     LCALL   _cs_init
+                                           ; SOURCE LINE # 21
+0050 900000      R     MOV     DPTR,#T
+0053 120000      E     LCALL   ?C?PLDXDATA
+0056 E9                MOV     A,R1
+0057 248E              ADD     A,#08EH
+0059 F9                MOV     R1,A
+005A EA                MOV     A,R2
+005B 3400              ADDC    A,#00H
+005D FA                MOV     R2,A
+005E 7D01              MOV     R5,#01H
+0060 120000      E     LCALL   _cs_init
+                                           ; SOURCE LINE # 22
+0063 900000      R     MOV     DPTR,#T
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 8   
+
+0066 120000      E     LCALL   ?C?PLDXDATA
+0069 E9                MOV     A,R1
+006A 2402              ADD     A,#02H
+006C F9                MOV     R1,A
+006D EA                MOV     A,R2
+006E 3401              ADDC    A,#01H
+0070 FA                MOV     R2,A
+0071 120000      E     LCALL   _position_init
+                                           ; SOURCE LINE # 23
+0074 900000      R     MOV     DPTR,#T
+0077 120000      E     LCALL   ?C?PLDXDATA
+007A E4                CLR     A
+007B 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 24
+007E 900000      R     MOV     DPTR,#T
+0081 120000      E     LCALL   ?C?PLDXDATA
+0084 E9                MOV     A,R1
+0085 240E              ADD     A,#0EH
+0087 F9                MOV     R1,A
+0088 EA                MOV     A,R2
+0089 3400              ADDC    A,#00H
+008B FA                MOV     R2,A
+008C E4                CLR     A
+008D 75F064            MOV     B,#064H
+0090 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 25
+0093 900000      R     MOV     DPTR,#T
+0096 120000      E     LCALL   ?C?PLDXDATA
+0099 E9                MOV     A,R1
+009A 2410              ADD     A,#010H
+009C F9                MOV     R1,A
+009D EA                MOV     A,R2
+009E 3400              ADDC    A,#00H
+00A0 FA                MOV     R2,A
+00A1 E4                CLR     A
+00A2 75F019            MOV     B,#019H
+00A5 120000      E     LCALL   ?C?ISTPTR
+                                           ; SOURCE LINE # 26
+00A8 900000      R     MOV     DPTR,#T
+00AB 120000      E     LCALL   ?C?PLDXDATA
+00AE E9                MOV     A,R1
+00AF 2401              ADD     A,#01H
+00B1 F9                MOV     R1,A
+00B2 EA                MOV     A,R2
+00B3 3400              ADDC    A,#00H
+00B5 FA                MOV     R2,A
+00B6 7401              MOV     A,#01H
+00B8 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 27
+00BB 7F00              MOV     R7,#00H
+00BD 7E00              MOV     R6,#00H
+00BF 7D00              MOV     R5,#00H
+00C1 7C00              MOV     R4,#00H
+00C3 900000      R     MOV     DPTR,#T
+00C6 120000      E     LCALL   ?C?PLDXDATA
+00C9 E9                MOV     A,R1
+00CA 2402              ADD     A,#02H
+00CC F9                MOV     R1,A
+00CD EA                MOV     A,R2
+00CE 3400              ADDC    A,#00H
+00D0 FA                MOV     R2,A
+00D1 120000      E     LCALL   ?C?LSTPTR
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 9   
+
+                                           ; SOURCE LINE # 28
+00D4 22                RET     
+             ; FUNCTION _trajectory_init (END)
+
+             ; FUNCTION _trajectory_goto_d (BEGIN)
+                                           ; SOURCE LINE # 65
+0000 900000      R     MOV     DPTR,#traj
+0003 120000      E     LCALL   ?C?PSTXDATA
+0006 900000      R     MOV     DPTR,#d
+0009 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 66
+                                           ; SOURCE LINE # 67
+000C 900000      R     MOV     DPTR,#traj
+000F 120000      E     LCALL   ?C?PLDXDATA
+0012 E9                MOV     A,R1
+0013 24F6              ADD     A,#0F6H
+0015 F9                MOV     R1,A
+0016 EA                MOV     A,R2
+0017 3400              ADDC    A,#00H
+0019 FA                MOV     R2,A
+001A 120000      E     LCALL   ?C?LLDPTR
+001D 900000      R     MOV     DPTR,#traj
+0020 120000      E     LCALL   ?C?PLDXDATA
+0023 E9                MOV     A,R1
+0024 240A              ADD     A,#0AH
+0026 F9                MOV     R1,A
+0027 EA                MOV     A,R2
+0028 3400              ADDC    A,#00H
+002A FA                MOV     R2,A
+002B 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 68
+002E 900000      R     MOV     DPTR,#traj
+0031 120000      E     LCALL   ?C?PLDXDATA
+0034 E9                MOV     A,R1
+0035 2412              ADD     A,#012H
+0037 F9                MOV     R1,A
+0038 EA                MOV     A,R2
+0039 3400              ADDC    A,#00H
+003B FA                MOV     R2,A
+003C 120000      E     LCALL   ?C?LLDPTR
+003F 900000      R     MOV     DPTR,#d
+0042 120000      E     LCALL   ?C?LLDXDATA0
+0045 120000      E     LCALL   ?C?LADD
+0048 900000      R     MOV     DPTR,#traj
+004B 120000      E     LCALL   ?C?PLDXDATA
+004E E9                MOV     A,R1
+004F 2406              ADD     A,#06H
+0051 F9                MOV     R1,A
+0052 EA                MOV     A,R2
+0053 3400              ADDC    A,#00H
+0055 FA                MOV     R2,A
+0056 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 70
+0059 900000      R     MOV     DPTR,#traj
+005C 120000      E     LCALL   ?C?PLDXDATA
+005F E9                MOV     A,R1
+0060 2406              ADD     A,#06H
+0062 F9                MOV     R1,A
+0063 EA                MOV     A,R2
+0064 3400              ADDC    A,#00H
+0066 FA                MOV     R2,A
+0067 C003              PUSH    AR3
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 10  
+
+0069 C002              PUSH    AR2
+006B C001              PUSH    AR1
+006D 900000      R     MOV     DPTR,#traj
+0070 120000      E     LCALL   ?C?PLDXDATA
+0073 E9                MOV     A,R1
+0074 24EE              ADD     A,#0EEH
+0076 F9                MOV     R1,A
+0077 EA                MOV     A,R2
+0078 3400              ADDC    A,#00H
+007A FA                MOV     R2,A
+007B 900000      E     MOV     DPTR,#?_cartesian_from_polar?BYTE+03H
+007E 120000      E     LCALL   ?C?PSTXDATA
+0081 D001              POP     AR1
+0083 D002              POP     AR2
+0085 D003              POP     AR3
+0087 120000      E     LCALL   _cartesian_from_polar
+                                           ; SOURCE LINE # 71
+008A 900000      R     MOV     DPTR,#traj
+008D 120000      E     LCALL   ?C?PLDXDATA
+0090 7404              MOV     A,#04H
+0092 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 72
+0095 22                RET     
+             ; FUNCTION _trajectory_goto_d (END)
+
+             ; FUNCTION _trajectory_goto_a (BEGIN)
+                                           ; SOURCE LINE # 74
+0000 900000      R     MOV     DPTR,#traj
+0003 120000      E     LCALL   ?C?PSTXDATA
+0006 900000      R     MOV     DPTR,#ang
+0009 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 75
+                                           ; SOURCE LINE # 85
+000C 900000      R     MOV     DPTR,#ang
+000F 120000      E     LCALL   ?C?LLDXDATA
+0012 120000      E     LCALL   _abs
+0015 AC06              MOV     R4,AR6
+0017 AD07              MOV     R5,AR7
+0019 EC                MOV     A,R4
+001A 120000      E     LCALL   ?C?FCASTI
+001D 7B9F              MOV     R3,#09FH
+001F 7A8B              MOV     R2,#08BH
+0021 79AA              MOV     R1,#0AAH
+0023 7845              MOV     R0,#045H
+0025 120000      E     LCALL   ?C?FPCMP3
+0028 506A              JNC     ?C0003
+                                           ; SOURCE LINE # 86
+                                           ; SOURCE LINE # 87
+002A 7F00              MOV     R7,#00H
+002C 7E00              MOV     R6,#00H
+002E 7D00              MOV     R5,#00H
+0030 7C00              MOV     R4,#00H
+0032 900000      R     MOV     DPTR,#ang
+0035 120000      E     LCALL   ?C?LLDXDATA0
+0038 D3                SETB    C
+0039 120000      E     LCALL   ?C?SLCMP
+003C 402B              JC      ?C0004
+                                           ; SOURCE LINE # 88
+003E 900000      R     MOV     DPTR,#ang
+0041 120000      E     LCALL   ?C?LLDXDATA
+0044 EC                MOV     A,R4
+0045 120000      E     LCALL   ?C?FCASTL
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 11  
+
+0048 7B9F              MOV     R3,#09FH
+004A 7A8B              MOV     R2,#08BH
+004C 792A              MOV     R1,#02AH
+004E 78C6              MOV     R0,#0C6H
+0050 120000      E     LCALL   ?C?FPADD
+0053 120000      E     LCALL   ?C?CASTF
+0056 900000      R     MOV     DPTR,#traj
+0059 120000      E     LCALL   ?C?PLDXDATA
+005C E9                MOV     A,R1
+005D 240A              ADD     A,#0AH
+005F F9                MOV     R1,A
+0060 EA                MOV     A,R2
+0061 3400              ADDC    A,#00H
+0063 FA                MOV     R2,A
+0064 120000      E     LCALL   ?C?LSTPTR
+0067 8042              SJMP    ?C0006
+0069         ?C0004:
+                                           ; SOURCE LINE # 90
+0069 900000      R     MOV     DPTR,#ang
+006C 120000      E     LCALL   ?C?LLDXDATA
+006F EC                MOV     A,R4
+0070 120000      E     LCALL   ?C?FCASTL
+0073 7B9F              MOV     R3,#09FH
+0075 7A8B              MOV     R2,#08BH
+0077 792A              MOV     R1,#02AH
+0079 7846              MOV     R0,#046H
+007B 120000      E     LCALL   ?C?FPADD
+007E 120000      E     LCALL   ?C?CASTF
+0081 900000      R     MOV     DPTR,#traj
+0084 120000      E     LCALL   ?C?PLDXDATA
+0087 E9                MOV     A,R1
+0088 240A              ADD     A,#0AH
+008A F9                MOV     R1,A
+008B EA                MOV     A,R2
+008C 3400              ADDC    A,#00H
+008E FA                MOV     R2,A
+008F 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 91
+0092 8017              SJMP    ?C0006
+0094         ?C0003:
+                                           ; SOURCE LINE # 93
+0094 900000      R     MOV     DPTR,#ang
+0097 120000      E     LCALL   ?C?LLDXDATA
+009A 900000      R     MOV     DPTR,#traj
+009D 120000      E     LCALL   ?C?PLDXDATA
+00A0 E9                MOV     A,R1
+00A1 240A              ADD     A,#0AH
+00A3 F9                MOV     R1,A
+00A4 EA                MOV     A,R2
+00A5 3400              ADDC    A,#00H
+00A7 FA                MOV     R2,A
+00A8 120000      E     LCALL   ?C?LSTPTR
+00AB         ?C0006:
+                                           ; SOURCE LINE # 95
+00AB 900000      R     MOV     DPTR,#traj
+00AE 120000      E     LCALL   ?C?PLDXDATA
+00B1 E9                MOV     A,R1
+00B2 24FA              ADD     A,#0FAH
+00B4 F9                MOV     R1,A
+00B5 EA                MOV     A,R2
+00B6 3400              ADDC    A,#00H
+00B8 FA                MOV     R2,A
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 12  
+
+00B9 C003              PUSH    AR3
+00BB C002              PUSH    AR2
+00BD C001              PUSH    AR1
+00BF 900000      R     MOV     DPTR,#traj
+00C2 120000      E     LCALL   ?C?PLDXDATA
+00C5 E9                MOV     A,R1
+00C6 24FA              ADD     A,#0FAH
+00C8 F9                MOV     R1,A
+00C9 EA                MOV     A,R2
+00CA 3400              ADDC    A,#00H
+00CC FA                MOV     R2,A
+00CD A801              MOV     R0,AR1
+00CF AC02              MOV     R4,AR2
+00D1 AD03              MOV     R5,AR3
+00D3 D001              POP     AR1
+00D5 D002              POP     AR2
+00D7 D003              POP     AR3
+00D9 7E00              MOV     R6,#00H
+00DB 7F08              MOV     R7,#08H
+00DD 120000      E     LCALL   ?C?COPYAMD
+                                           ; SOURCE LINE # 96
+00E0 900000      R     MOV     DPTR,#traj
+00E3 120000      E     LCALL   ?C?PLDXDATA
+00E6 E9                MOV     A,R1
+00E7 240A              ADD     A,#0AH
+00E9 F9                MOV     R1,A
+00EA EA                MOV     A,R2
+00EB 3400              ADDC    A,#00H
+00ED FA                MOV     R2,A
+00EE C003              PUSH    AR3
+00F0 C002              PUSH    AR2
+00F2 C001              PUSH    AR1
+00F4 120000      E     LCALL   ?C?LLDPTR
+00F7 900000      R     MOV     DPTR,#traj
+00FA 120000      E     LCALL   ?C?PLDXDATA
+00FD E9                MOV     A,R1
+00FE 24F6              ADD     A,#0F6H
+0100 F9                MOV     R1,A
+0101 EA                MOV     A,R2
+0102 3400              ADDC    A,#00H
+0104 FA                MOV     R2,A
+0105 120000      E     LCALL   ?C?LLDPTR0
+0108 120000      E     LCALL   ?C?LADD
+010B D001              POP     AR1
+010D D002              POP     AR2
+010F D003              POP     AR3
+0111 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 98
+0114 900000      R     MOV     DPTR,#traj
+0117 120000      E     LCALL   ?C?PLDXDATA
+011A 7404              MOV     A,#04H
+011C 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 106
+011F 22                RET     
+             ; FUNCTION _trajectory_goto_a (END)
+
+             ; FUNCTION _trajectory_goto_a_without_event (BEGIN)
+                                           ; SOURCE LINE # 108
+0000 900000      R     MOV     DPTR,#traj
+0003 120000      E     LCALL   ?C?PSTXDATA
+0006 900000      R     MOV     DPTR,#ang
+0009 120000      E     LCALL   ?C?LSTXDATA
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 13  
+
+                                           ; SOURCE LINE # 109
+                                           ; SOURCE LINE # 110
+000C 900000      R     MOV     DPTR,#traj
+000F 120000      E     LCALL   ?C?PLDXDATA
+0012 900000      R     MOV     DPTR,#ang
+0015 120000      E     LCALL   ?C?LLDXDATA
+0018 120000      R     LCALL   _trajectory_goto_a
+                                           ; SOURCE LINE # 111
+001B 900000      R     MOV     DPTR,#traj
+001E 120000      E     LCALL   ?C?PLDXDATA
+0021 E9                MOV     A,R1
+0022 2432              ADD     A,#032H
+0024 F9                MOV     R1,A
+0025 EA                MOV     A,R2
+0026 3400              ADDC    A,#00H
+0028 FA                MOV     R2,A
+0029 C003              PUSH    AR3
+002B C002              PUSH    AR2
+002D C001              PUSH    AR1
+002F 900000      R     MOV     DPTR,#traj
+0032 120000      E     LCALL   ?C?PLDXDATA
+0035 E9                MOV     A,R1
+0036 240A              ADD     A,#0AH
+0038 F9                MOV     R1,A
+0039 EA                MOV     A,R2
+003A 3400              ADDC    A,#00H
+003C FA                MOV     R2,A
+003D 900000      E     MOV     DPTR,#?_cs_set_consign?BYTE+03H
+0040 120000      E     LCALL   ?C?PSTXDATA
+0043 900000      R     MOV     DPTR,#traj
+0046 120000      E     LCALL   ?C?PLDXDATA
+0049 E9                MOV     A,R1
+004A 2412              ADD     A,#012H
+004C F9                MOV     R1,A
+004D EA                MOV     A,R2
+004E 3400              ADDC    A,#00H
+0050 FA                MOV     R2,A
+0051 900000      E     MOV     DPTR,#?_cs_set_consign?BYTE+06H
+0054 120000      E     LCALL   ?C?PSTXDATA
+0057 D001              POP     AR1
+0059 D002              POP     AR2
+005B D003              POP     AR3
+005D 120000      E     LCALL   _cs_set_consign
+                                           ; SOURCE LINE # 113
+0060 900000      R     MOV     DPTR,#traj
+0063 120000      E     LCALL   ?C?PLDXDATA
+0066 E4                CLR     A
+0067 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 114
+006A 22                RET     
+             ; FUNCTION _trajectory_goto_a_without_event (END)
+
+             ; FUNCTION _trajectory_update (BEGIN)
+                                           ; SOURCE LINE # 118
+0000 900000      R     MOV     DPTR,#traj
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 119
+                                           ; SOURCE LINE # 121
+0006 900000      R     MOV     DPTR,#traj
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 2412              ADD     A,#012H
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 14  
+
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3400              ADDC    A,#00H
+0013 FA                MOV     R2,A
+0014 120000      E     LCALL   _rs_update
+                                           ; SOURCE LINE # 122
+0017 900000      R     MOV     DPTR,#traj
+001A 120000      E     LCALL   ?C?PLDXDATA
+001D 120000      E     LCALL   _process_xy
+                                           ; SOURCE LINE # 123
+0020 900000      R     MOV     DPTR,#traj
+0023 120000      E     LCALL   ?C?PLDXDATA
+0026 E9                MOV     A,R1
+0027 2432              ADD     A,#032H
+0029 F9                MOV     R1,A
+002A EA                MOV     A,R2
+002B 3400              ADDC    A,#00H
+002D FA                MOV     R2,A
+002E C003              PUSH    AR3
+0030 C002              PUSH    AR2
+0032 C001              PUSH    AR1
+0034 900000      R     MOV     DPTR,#traj
+0037 120000      E     LCALL   ?C?PLDXDATA
+003A E9                MOV     A,R1
+003B 2412              ADD     A,#012H
+003D F9                MOV     R1,A
+003E EA                MOV     A,R2
+003F 3400              ADDC    A,#00H
+0041 FA                MOV     R2,A
+0042 900000      E     MOV     DPTR,#?_cs_do_process?BYTE+03H
+0045 120000      E     LCALL   ?C?PSTXDATA
+0048 D001              POP     AR1
+004A D002              POP     AR2
+004C D003              POP     AR3
+004E 120000      E     LCALL   _cs_do_process
+                                           ; SOURCE LINE # 124
+0051 900000      R     MOV     DPTR,#traj
+0054 120000      E     LCALL   ?C?PLDXDATA
+0057 E9                MOV     A,R1
+0058 248E              ADD     A,#08EH
+005A F9                MOV     R1,A
+005B EA                MOV     A,R2
+005C 3400              ADDC    A,#00H
+005E FA                MOV     R2,A
+005F C003              PUSH    AR3
+0061 C002              PUSH    AR2
+0063 C001              PUSH    AR1
+0065 900000      R     MOV     DPTR,#traj
+0068 120000      E     LCALL   ?C?PLDXDATA
+006B E9                MOV     A,R1
+006C 2412              ADD     A,#012H
+006E F9                MOV     R1,A
+006F EA                MOV     A,R2
+0070 3400              ADDC    A,#00H
+0072 FA                MOV     R2,A
+0073 900000      E     MOV     DPTR,#?_cs_do_process?BYTE+03H
+0076 120000      E     LCALL   ?C?PSTXDATA
+0079 D001              POP     AR1
+007B D002              POP     AR2
+007D D003              POP     AR3
+007F 120000      E     LCALL   _cs_do_process
+                                           ; SOURCE LINE # 126
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 15  
+
+0082 900000      R     MOV     DPTR,#traj
+0085 120000      E     LCALL   ?C?PLDXDATA
+0088 E9                MOV     A,R1
+0089 2416              ADD     A,#016H
+008B F9                MOV     R1,A
+008C EA                MOV     A,R2
+008D 3400              ADDC    A,#00H
+008F FA                MOV     R2,A
+0090 120000      E     LCALL   ?C?LLDPTR
+0093 900000      R     MOV     DPTR,#traj
+0096 120000      E     LCALL   ?C?PLDXDATA
+0099 E9                MOV     A,R1
+009A 24F6              ADD     A,#0F6H
+009C F9                MOV     R1,A
+009D EA                MOV     A,R2
+009E 3400              ADDC    A,#00H
+00A0 FA                MOV     R2,A
+00A1 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 128
+00A4 900000      R     MOV     DPTR,#traj
+00A7 120000      E     LCALL   ?C?PLDXDATA
+00AA 120000      E     LCALL   ?C?CLDPTR
+00AD FF                MOV     R7,A
+00AE EF                MOV     A,R7
+00AF 30E731            JNB     ACC.7,?C0009
+                                           ; SOURCE LINE # 129
+                                           ; SOURCE LINE # 130
+00B2 900000      R     MOV     DPTR,#traj
+00B5 120000      E     LCALL   ?C?PLDXDATA
+00B8 120000      E     LCALL   ?C?CLDPTR
+00BB FF                MOV     R7,A
+00BC EF                MOV     A,R7
+00BD 547F              ANL     A,#07FH
+00BF FF                MOV     R7,A
+00C0 EF                MOV     A,R7
+00C1 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 132
+00C4 900000      R     MOV     DPTR,#traj
+00C7 120000      E     LCALL   ?C?PLDXDATA
+00CA C003              PUSH    AR3
+00CC C002              PUSH    AR2
+00CE C001              PUSH    AR1
+00D0 900000      R     MOV     DPTR,#traj
+00D3 120000      E     LCALL   ?C?PLDXDATA
+00D6 120000      E     LCALL   ?C?CLDPTR
+00D9 FD                MOV     R5,A
+00DA D001              POP     AR1
+00DC D002              POP     AR2
+00DE D003              POP     AR3
+00E0 120000      R     LCALL   _trajectory_stop
+                                           ; SOURCE LINE # 133
+00E3         ?C0009:
+                                           ; SOURCE LINE # 135
+00E3 900000      R     MOV     DPTR,#traj
+00E6 120000      E     LCALL   ?C?PLDXDATA
+00E9 120000      E     LCALL   ?C?CLDPTR
+00EC FF                MOV     R7,A
+00ED EF                MOV     A,R7
+00EE 5477              ANL     A,#077H
+00F0 FF                MOV     R7,A
+00F1 EF                MOV     A,R7
+00F2 120000      E     LCALL   ?C?CCASE
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 16  
+
+00F5 0000        R     DW      ?C0018
+00F7 01                DB      01H
+00F8 0000        R     DW      ?C0012
+00FA 02                DB      02H
+00FB 0000        R     DW      ?C0011
+00FD 04                DB      04H
+00FE 0000        R     DW      ?C0026
+0100 10                DB      010H
+0101 0000              DW      00H
+0103 0000        R     DW      ?C0026
+                                           ; SOURCE LINE # 136
+                                           ; SOURCE LINE # 137
+0105         ?C0011:
+                                           ; SOURCE LINE # 140
+0105 900000      R     MOV     DPTR,#traj
+0108 120000      E     LCALL   ?C?PLDXDATA
+010B E9                MOV     A,R1
+010C 2432              ADD     A,#032H
+010E F9                MOV     R1,A
+010F EA                MOV     A,R2
+0110 3400              ADDC    A,#00H
+0112 FA                MOV     R2,A
+0113 C003              PUSH    AR3
+0115 C002              PUSH    AR2
+0117 C001              PUSH    AR1
+0119 900000      R     MOV     DPTR,#traj
+011C 120000      E     LCALL   ?C?PLDXDATA
+011F E9                MOV     A,R1
+0120 240A              ADD     A,#0AH
+0122 F9                MOV     R1,A
+0123 EA                MOV     A,R2
+0124 3400              ADDC    A,#00H
+0126 FA                MOV     R2,A
+0127 900000      E     MOV     DPTR,#?_cs_set_consign?BYTE+03H
+012A 120000      E     LCALL   ?C?PSTXDATA
+012D 900000      R     MOV     DPTR,#traj
+0130 120000      E     LCALL   ?C?PLDXDATA
+0133 E9                MOV     A,R1
+0134 2412              ADD     A,#012H
+0136 F9                MOV     R1,A
+0137 EA                MOV     A,R2
+0138 3400              ADDC    A,#00H
+013A FA                MOV     R2,A
+013B 900000      E     MOV     DPTR,#?_cs_set_consign?BYTE+06H
+013E 120000      E     LCALL   ?C?PSTXDATA
+0141 D001              POP     AR1
+0143 D002              POP     AR2
+0145 D003              POP     AR3
+0147 120000      E     LCALL   _cs_set_consign
+                                           ; SOURCE LINE # 142
+014A 900000      R     MOV     DPTR,#traj
+014D 120000      E     LCALL   ?C?PLDXDATA
+0150 7402              MOV     A,#02H
+0152 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 143
+0155 22                RET     
+                                           ; SOURCE LINE # 144
+0156         ?C0012:
+                                           ; SOURCE LINE # 145
+0156 900000      R     MOV     DPTR,#traj
+0159 120000      E     LCALL   ?C?PLDXDATA
+015C E9                MOV     A,R1
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 17  
+
+015D 240A              ADD     A,#0AH
+015F F9                MOV     R1,A
+0160 EA                MOV     A,R2
+0161 3400              ADDC    A,#00H
+0163 FA                MOV     R2,A
+0164 120000      E     LCALL   ?C?LLDPTR
+0167 C006              PUSH    AR6
+0169 C007              PUSH    AR7
+016B 900000      R     MOV     DPTR,#traj
+016E 120000      E     LCALL   ?C?PLDXDATA
+0171 E9                MOV     A,R1
+0172 24F6              ADD     A,#0F6H
+0174 F9                MOV     R1,A
+0175 EA                MOV     A,R2
+0176 3400              ADDC    A,#00H
+0178 FA                MOV     R2,A
+0179 120000      E     LCALL   ?C?LLDPTR
+017C AD07              MOV     R5,AR7
+017E AC06              MOV     R4,AR6
+0180 D007              POP     AR7
+0182 D006              POP     AR6
+0184 C3                CLR     C
+0185 ED                MOV     A,R5
+0186 9F                SUBB    A,R7
+0187 FF                MOV     R7,A
+0188 EC                MOV     A,R4
+0189 9E                SUBB    A,R6
+018A FE                MOV     R6,A
+018B 120000      E     LCALL   _abs
+018E 900000      R     MOV     DPTR,#traj
+0191 120000      E     LCALL   ?C?PLDXDATA
+0194 E9                MOV     A,R1
+0195 2410              ADD     A,#010H
+0197 F9                MOV     R1,A
+0198 EA                MOV     A,R2
+0199 3400              ADDC    A,#00H
+019B FA                MOV     R2,A
+019C 120000      E     LCALL   ?C?ILDPTR
+019F FD                MOV     R5,A
+01A0 ACF0              MOV     R4,B
+01A2 C3                CLR     C
+01A3 EF                MOV     A,R7
+01A4 9D                SUBB    A,R5
+01A5 EE                MOV     A,R6
+01A6 9C                SUBB    A,R4
+01A7 4003              JC      $ + 5H
+01A9 020000      R     LJMP    ?C0013
+                                           ; SOURCE LINE # 146
+                                           ; SOURCE LINE # 147
+01AC 900000      R     MOV     DPTR,#traj
+01AF 120000      E     LCALL   ?C?PLDXDATA
+01B2 120000      E     LCALL   ?C?CLDPTR
+01B5 FF                MOV     R7,A
+01B6 EF                MOV     A,R7
+01B7 5488              ANL     A,#088H
+01B9 FF                MOV     R7,A
+01BA EF                MOV     A,R7
+01BB 7003              JNZ     $ + 5H
+01BD 020000      R     LJMP    ?C0014
+                                           ; SOURCE LINE # 148
+                                           ; SOURCE LINE # 149
+01C0 900000      R     MOV     DPTR,#traj
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 18  
+
+01C3 120000      E     LCALL   ?C?PLDXDATA
+01C6 E9                MOV     A,R1
+01C7 2402              ADD     A,#02H
+01C9 F9                MOV     R1,A
+01CA EA                MOV     A,R2
+01CB 3400              ADDC    A,#00H
+01CD FA                MOV     R2,A
+01CE 120000      E     LCALL   ?C?LLDPTR
+01D1 C004              PUSH    AR4
+01D3 C005              PUSH    AR5
+01D5 C006              PUSH    AR6
+01D7 C007              PUSH    AR7
+01D9 900000      R     MOV     DPTR,#start_stab_time
+01DC 120000      E     LCALL   ?C?LLDXDATA
+01DF AB07              MOV     R3,AR7
+01E1 AA06              MOV     R2,AR6
+01E3 A905              MOV     R1,AR5
+01E5 A804              MOV     R0,AR4
+01E7 A804              MOV     R0,AR4
+01E9 A905              MOV     R1,AR5
+01EB AA06              MOV     R2,AR6
+01ED AB07              MOV     R3,AR7
+01EF D007              POP     AR7
+01F1 D006              POP     AR6
+01F3 D005              POP     AR5
+01F5 D004              POP     AR4
+01F7 120000      E     LCALL   ?C?LSUB
+01FA 7B32              MOV     R3,#032H
+01FC 7A00              MOV     R2,#00H
+01FE 7900              MOV     R1,#00H
+0200 7800              MOV     R0,#00H
+0202 C3                CLR     C
+0203 120000      E     LCALL   ?C?ULCMP
+0206 4003              JC      $ + 5H
+0208 020000      R     LJMP    ?C0026
+                                           ; SOURCE LINE # 150
+                                           ; SOURCE LINE # 151
+020B 900000      R     MOV     DPTR,#traj
+020E 120000      E     LCALL   ?C?PLDXDATA
+0211 7401              MOV     A,#01H
+0213 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 154
+0216 900000      R     MOV     DPTR,#traj
+0219 120000      E     LCALL   ?C?PLDXDATA
+021C E9                MOV     A,R1
+021D 248E              ADD     A,#08EH
+021F F9                MOV     R1,A
+0220 EA                MOV     A,R2
+0221 3400              ADDC    A,#00H
+0223 FA                MOV     R2,A
+0224 C003              PUSH    AR3
+0226 C002              PUSH    AR2
+0228 C001              PUSH    AR1
+022A 900000      R     MOV     DPTR,#traj
+022D 120000      E     LCALL   ?C?PLDXDATA
+0230 E9                MOV     A,R1
+0231 2406              ADD     A,#06H
+0233 F9                MOV     R1,A
+0234 EA                MOV     A,R2
+0235 3400              ADDC    A,#00H
+0237 FA                MOV     R2,A
+0238 900000      E     MOV     DPTR,#?_cs_set_consign?BYTE+03H
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 19  
+
+023B 120000      E     LCALL   ?C?PSTXDATA
+023E 900000      R     MOV     DPTR,#traj
+0241 120000      E     LCALL   ?C?PLDXDATA
+0244 E9                MOV     A,R1
+0245 2412              ADD     A,#012H
+0247 F9                MOV     R1,A
+0248 EA                MOV     A,R2
+0249 3400              ADDC    A,#00H
+024B FA                MOV     R2,A
+024C 900000      E     MOV     DPTR,#?_cs_set_consign?BYTE+06H
+024F 120000      E     LCALL   ?C?PSTXDATA
+0252 D001              POP     AR1
+0254 D002              POP     AR2
+0256 D003              POP     AR3
+0258 120000      E     LCALL   _cs_set_consign
+                                           ; SOURCE LINE # 155
+                                           ; SOURCE LINE # 156
+025B 22                RET     
+025C         ?C0014:
+                                           ; SOURCE LINE # 158
+                                           ; SOURCE LINE # 159
+025C 900000      R     MOV     DPTR,#traj
+025F 120000      E     LCALL   ?C?PLDXDATA
+0262 120000      E     LCALL   ?C?CLDPTR
+0265 FF                MOV     R7,A
+0266 EF                MOV     A,R7
+0267 4488              ORL     A,#088H
+0269 FF                MOV     R7,A
+026A EF                MOV     A,R7
+026B 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 160
+026E 900000      R     MOV     DPTR,#traj
+0271 120000      E     LCALL   ?C?PLDXDATA
+0274 120000      E     LCALL   ?C?CLDPTR
+0277 FF                MOV     R7,A
+0278 EF                MOV     A,R7
+0279 547F              ANL     A,#07FH
+027B FF                MOV     R7,A
+027C EF                MOV     A,R7
+027D 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 161
+0280 900000      R     MOV     DPTR,#traj
+0283 120000      E     LCALL   ?C?PLDXDATA
+0286 E9                MOV     A,R1
+0287 2402              ADD     A,#02H
+0289 F9                MOV     R1,A
+028A EA                MOV     A,R2
+028B 3400              ADDC    A,#00H
+028D FA                MOV     R2,A
+028E 120000      E     LCALL   ?C?LLDPTR
+0291 900000      R     MOV     DPTR,#start_stab_time
+0294 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 162
+                                           ; SOURCE LINE # 163
+0297 22                RET     
+0298         ?C0013:
+                                           ; SOURCE LINE # 165
+0298 900000      R     MOV     DPTR,#traj
+029B 120000      E     LCALL   ?C?PLDXDATA
+029E 120000      E     LCALL   ?C?CLDPTR
+02A1 FF                MOV     R7,A
+02A2 EF                MOV     A,R7
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 20  
+
+02A3 5477              ANL     A,#077H
+02A5 FF                MOV     R7,A
+02A6 EF                MOV     A,R7
+02A7 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 166
+02AA 22                RET     
+                                           ; SOURCE LINE # 167
+02AB         ?C0018:
+                                           ; SOURCE LINE # 168
+02AB 900000      R     MOV     DPTR,#traj
+02AE 120000      E     LCALL   ?C?PLDXDATA
+02B1 E9                MOV     A,R1
+02B2 2412              ADD     A,#012H
+02B4 F9                MOV     R1,A
+02B5 EA                MOV     A,R2
+02B6 3400              ADDC    A,#00H
+02B8 FA                MOV     R2,A
+02B9 120000      E     LCALL   ?C?LLDPTR
+02BC C006              PUSH    AR6
+02BE C007              PUSH    AR7
+02C0 900000      R     MOV     DPTR,#traj
+02C3 120000      E     LCALL   ?C?PLDXDATA
+02C6 E9                MOV     A,R1
+02C7 2406              ADD     A,#06H
+02C9 F9                MOV     R1,A
+02CA EA                MOV     A,R2
+02CB 3400              ADDC    A,#00H
+02CD FA                MOV     R2,A
+02CE 120000      E     LCALL   ?C?LLDPTR
+02D1 AD07              MOV     R5,AR7
+02D3 AC06              MOV     R4,AR6
+02D5 D007              POP     AR7
+02D7 D006              POP     AR6
+02D9 C3                CLR     C
+02DA ED                MOV     A,R5
+02DB 9F                SUBB    A,R7
+02DC FF                MOV     R7,A
+02DD EC                MOV     A,R4
+02DE 9E                SUBB    A,R6
+02DF FE                MOV     R6,A
+02E0 120000      E     LCALL   _abs
+02E3 900000      R     MOV     DPTR,#traj
+02E6 120000      E     LCALL   ?C?PLDXDATA
+02E9 E9                MOV     A,R1
+02EA 240E              ADD     A,#0EH
+02EC F9                MOV     R1,A
+02ED EA                MOV     A,R2
+02EE 3400              ADDC    A,#00H
+02F0 FA                MOV     R2,A
+02F1 120000      E     LCALL   ?C?ILDPTR
+02F4 FD                MOV     R5,A
+02F5 ACF0              MOV     R4,B
+02F7 C3                CLR     C
+02F8 EF                MOV     A,R7
+02F9 9D                SUBB    A,R5
+02FA EE                MOV     A,R6
+02FB 9C                SUBB    A,R4
+02FC 4003              JC      $ + 5H
+02FE 020000      R     LJMP    ?C0019
+                                           ; SOURCE LINE # 169
+                                           ; SOURCE LINE # 170
+0301 900000      R     MOV     DPTR,#traj
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 21  
+
+0304 120000      E     LCALL   ?C?PLDXDATA
+0307 120000      E     LCALL   ?C?CLDPTR
+030A FF                MOV     R7,A
+030B EF                MOV     A,R7
+030C 5488              ANL     A,#088H
+030E FF                MOV     R7,A
+030F EF                MOV     A,R7
+0310 7003              JNZ     $ + 5H
+0312 020000      R     LJMP    ?C0020
+                                           ; SOURCE LINE # 171
+                                           ; SOURCE LINE # 172
+0315 900000      R     MOV     DPTR,#traj
+0318 120000      E     LCALL   ?C?PLDXDATA
+031B E9                MOV     A,R1
+031C 2402              ADD     A,#02H
+031E F9                MOV     R1,A
+031F EA                MOV     A,R2
+0320 3400              ADDC    A,#00H
+0322 FA                MOV     R2,A
+0323 120000      E     LCALL   ?C?LLDPTR
+0326 C004              PUSH    AR4
+0328 C005              PUSH    AR5
+032A C006              PUSH    AR6
+032C C007              PUSH    AR7
+032E 900000      R     MOV     DPTR,#start_stab_time
+0331 120000      E     LCALL   ?C?LLDXDATA
+0334 AB07              MOV     R3,AR7
+0336 AA06              MOV     R2,AR6
+0338 A905              MOV     R1,AR5
+033A A804              MOV     R0,AR4
+033C A804              MOV     R0,AR4
+033E A905              MOV     R1,AR5
+0340 AA06              MOV     R2,AR6
+0342 AB07              MOV     R3,AR7
+0344 D007              POP     AR7
+0346 D006              POP     AR6
+0348 D005              POP     AR5
+034A D004              POP     AR4
+034C 120000      E     LCALL   ?C?LSUB
+034F 7B32              MOV     R3,#032H
+0351 7A00              MOV     R2,#00H
+0353 7900              MOV     R1,#00H
+0355 7800              MOV     R0,#00H
+0357 C3                CLR     C
+0358 120000      E     LCALL   ?C?ULCMP
+035B 4003              JC      $ + 5H
+035D 020000      R     LJMP    ?C0026
+                                           ; SOURCE LINE # 173
+                                           ; SOURCE LINE # 174
+0360 900000      R     MOV     DPTR,#traj
+0363 120000      E     LCALL   ?C?PLDXDATA
+0366 E4                CLR     A
+0367 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 175
+036A 900000      R     MOV     DPTR,#traj
+036D 120000      E     LCALL   ?C?PLDXDATA
+0370 E9                MOV     A,R1
+0371 2402              ADD     A,#02H
+0373 F9                MOV     R1,A
+0374 EA                MOV     A,R2
+0375 3401              ADDC    A,#01H
+0377 FA                MOV     R2,A
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 22  
+
+0378 C003              PUSH    AR3
+037A C002              PUSH    AR2
+037C C001              PUSH    AR1
+037E 900000      R     MOV     DPTR,#traj
+0381 120000      E     LCALL   ?C?PLDXDATA
+0384 E9                MOV     A,R1
+0385 24FA              ADD     A,#0FAH
+0387 F9                MOV     R1,A
+0388 EA                MOV     A,R2
+0389 3400              ADDC    A,#00H
+038B FA                MOV     R2,A
+038C A801              MOV     R0,AR1
+038E AC02              MOV     R4,AR2
+0390 AD03              MOV     R5,AR3
+0392 D001              POP     AR1
+0394 D002              POP     AR2
+0396 D003              POP     AR3
+0398 7E00              MOV     R6,#00H
+039A 7F08              MOV     R7,#08H
+039C 120000      E     LCALL   ?C?COPYAMD
+                                           ; SOURCE LINE # 176
+039F 7BFF              MOV     R3,#0FFH
+03A1 7A00        R     MOV     R2,#HIGH ?SC_0
+03A3 7900        R     MOV     R1,#LOW ?SC_0
+03A5 120000      E     LCALL   _uart_pc_PutString
+                                           ; SOURCE LINE # 177
+                                           ; SOURCE LINE # 178
+03A8 22                RET     
+03A9         ?C0020:
+                                           ; SOURCE LINE # 180
+                                           ; SOURCE LINE # 181
+03A9 900000      R     MOV     DPTR,#traj
+03AC 120000      E     LCALL   ?C?PLDXDATA
+03AF 120000      E     LCALL   ?C?CLDPTR
+03B2 FF                MOV     R7,A
+03B3 EF                MOV     A,R7
+03B4 4488              ORL     A,#088H
+03B6 FF                MOV     R7,A
+03B7 EF                MOV     A,R7
+03B8 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 182
+03BB 900000      R     MOV     DPTR,#traj
+03BE 120000      E     LCALL   ?C?PLDXDATA
+03C1 120000      E     LCALL   ?C?CLDPTR
+03C4 FF                MOV     R7,A
+03C5 EF                MOV     A,R7
+03C6 547F              ANL     A,#07FH
+03C8 FF                MOV     R7,A
+03C9 EF                MOV     A,R7
+03CA 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 183
+03CD 900000      R     MOV     DPTR,#traj
+03D0 120000      E     LCALL   ?C?PLDXDATA
+03D3 E9                MOV     A,R1
+03D4 2402              ADD     A,#02H
+03D6 F9                MOV     R1,A
+03D7 EA                MOV     A,R2
+03D8 3400              ADDC    A,#00H
+03DA FA                MOV     R2,A
+03DB 120000      E     LCALL   ?C?LLDPTR
+03DE 900000      R     MOV     DPTR,#start_stab_time
+03E1 120000      E     LCALL   ?C?LSTXDATA
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 23  
+
+                                           ; SOURCE LINE # 184
+                                           ; SOURCE LINE # 185
+03E4 22                RET     
+03E5         ?C0019:
+                                           ; SOURCE LINE # 187
+03E5 900000      R     MOV     DPTR,#traj
+03E8 120000      E     LCALL   ?C?PLDXDATA
+03EB 120000      E     LCALL   ?C?CLDPTR
+03EE FF                MOV     R7,A
+03EF EF                MOV     A,R7
+03F0 5477              ANL     A,#077H
+03F2 FF                MOV     R7,A
+03F3 EF                MOV     A,R7
+03F4 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 188
+                                           ; SOURCE LINE # 190
+                                           ; SOURCE LINE # 194
+                                           ; SOURCE LINE # 196
+                                           ; SOURCE LINE # 197
+                                           ; SOURCE LINE # 198
+                                           ; SOURCE LINE # 199
+03F7         ?C0026:
+03F7 22                RET     
+             ; FUNCTION _trajectory_update (END)
+
+             ; FUNCTION _trajectory_goto_xy (BEGIN)
+                                           ; SOURCE LINE # 201
+0000 900000      R     MOV     DPTR,#T
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 202
+                                           ; SOURCE LINE # 206
+0006 900000      R     MOV     DPTR,#T
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 24FA              ADD     A,#0FAH
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3400              ADDC    A,#00H
+0013 FA                MOV     R2,A
+0014 120000      E     LCALL   ?C?LLDPTR0
+0017 C000              PUSH    AR0
+0019 C001              PUSH    AR1
+001B C002              PUSH    AR2
+001D C003              PUSH    AR3
+001F 900000      R     MOV     DPTR,#pos
+0022 120000      E     LCALL   ?C?PLDXDATA
+0025 120000      E     LCALL   ?C?LLDPTR
+0028 D003              POP     AR3
+002A D002              POP     AR2
+002C D001              POP     AR1
+002E D000              POP     AR0
+0030 120000      E     LCALL   ?C?FPSUB
+0033 900000      R     MOV     DPTR,#s
+0036 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 207
+0039 900000      R     MOV     DPTR,#T
+003C 120000      E     LCALL   ?C?PLDXDATA
+003F E9                MOV     A,R1
+0040 24FE              ADD     A,#0FEH
+0042 F9                MOV     R1,A
+0043 EA                MOV     A,R2
+0044 3400              ADDC    A,#00H
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 24  
+
+0046 FA                MOV     R2,A
+0047 120000      E     LCALL   ?C?LLDPTR0
+004A C000              PUSH    AR0
+004C C001              PUSH    AR1
+004E C002              PUSH    AR2
+0050 C003              PUSH    AR3
+0052 900000      R     MOV     DPTR,#pos
+0055 120000      E     LCALL   ?C?PLDXDATA
+0058 E9                MOV     A,R1
+0059 2404              ADD     A,#04H
+005B F9                MOV     R1,A
+005C EA                MOV     A,R2
+005D 3400              ADDC    A,#00H
+005F FA                MOV     R2,A
+0060 120000      E     LCALL   ?C?LLDPTR
+0063 D003              POP     AR3
+0065 D002              POP     AR2
+0067 D001              POP     AR1
+0069 D000              POP     AR0
+006B 120000      E     LCALL   ?C?FPSUB
+006E 900000      R     MOV     DPTR,#s+04H
+0071 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 208
+0074 7B01              MOV     R3,#01H
+0076 7A00        R     MOV     R2,#HIGH s
+0078 7900        R     MOV     R1,#LOW s
+007A C003              PUSH    AR3
+007C C002              PUSH    AR2
+007E C001              PUSH    AR1
+0080 900000      R     MOV     DPTR,#T
+0083 120000      E     LCALL   ?C?PLDXDATA
+0086 E9                MOV     A,R1
+0087 2406              ADD     A,#06H
+0089 F9                MOV     R1,A
+008A EA                MOV     A,R2
+008B 3400              ADDC    A,#00H
+008D FA                MOV     R2,A
+008E 900000      E     MOV     DPTR,#?_polar_from_cartesian?BYTE+03H
+0091 120000      E     LCALL   ?C?PSTXDATA
+0094 D001              POP     AR1
+0096 D002              POP     AR2
+0098 D003              POP     AR3
+009A 120000      E     LCALL   _polar_from_cartesian
+                                           ; SOURCE LINE # 211
+009D 900000      R     MOV     DPTR,#T
+00A0 120000      E     LCALL   ?C?PLDXDATA
+00A3 E9                MOV     A,R1
+00A4 2406              ADD     A,#06H
+00A6 F9                MOV     R1,A
+00A7 EA                MOV     A,R2
+00A8 3400              ADDC    A,#00H
+00AA FA                MOV     R2,A
+00AB 120000      E     LCALL   ?C?LLDPTR
+00AE 7B00              MOV     R3,#00H
+00B0 7A00              MOV     R2,#00H
+00B2 7900              MOV     R1,#00H
+00B4 7800              MOV     R0,#00H
+00B6 C3                CLR     C
+00B7 120000      E     LCALL   ?C?SLCMP
+00BA 7022              JNZ     ?C0027
+                                           ; SOURCE LINE # 212
+00BC 900000      R     MOV     DPTR,#T
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 25  
+
+00BF 120000      E     LCALL   ?C?PLDXDATA
+00C2 E9                MOV     A,R1
+00C3 24F6              ADD     A,#0F6H
+00C5 F9                MOV     R1,A
+00C6 EA                MOV     A,R2
+00C7 3400              ADDC    A,#00H
+00C9 FA                MOV     R2,A
+00CA 120000      E     LCALL   ?C?LLDPTR
+00CD 900000      R     MOV     DPTR,#T
+00D0 120000      E     LCALL   ?C?PLDXDATA
+00D3 E9                MOV     A,R1
+00D4 240A              ADD     A,#0AH
+00D6 F9                MOV     R1,A
+00D7 EA                MOV     A,R2
+00D8 3400              ADDC    A,#00H
+00DA FA                MOV     R2,A
+00DB 120000      E     LCALL   ?C?LSTPTR
+00DE         ?C0027:
+                                           ; SOURCE LINE # 214
+00DE 7F9F              MOV     R7,#09FH
+00E0 7E8B              MOV     R6,#08BH
+00E2 7D2A              MOV     R5,#02AH
+00E4 7C46              MOV     R4,#046H
+00E6 120000      E     LCALL   _floor
+00E9 120000      E     LCALL   ?C?CASTF
+00EC E4                CLR     A
+00ED FC                MOV     R4,A
+00EE FD                MOV     R5,A
+00EF C004              PUSH    AR4
+00F1 C005              PUSH    AR5
+00F3 C006              PUSH    AR6
+00F5 C007              PUSH    AR7
+00F7 900000      R     MOV     DPTR,#T
+00FA 120000      E     LCALL   ?C?PLDXDATA
+00FD E9                MOV     A,R1
+00FE 24F6              ADD     A,#0F6H
+0100 F9                MOV     R1,A
+0101 EA                MOV     A,R2
+0102 3400              ADDC    A,#00H
+0104 FA                MOV     R2,A
+0105 120000      E     LCALL   ?C?LLDPTR
+0108 D003              POP     AR3
+010A D002              POP     AR2
+010C D001              POP     AR1
+010E D000              POP     AR0
+0110 120000      E     LCALL   ?C?SLDIV
+0113 AC00              MOV     R4,AR0
+0115 AD01              MOV     R5,AR1
+0117 AE02              MOV     R6,AR2
+0119 AF03              MOV     R7,AR3
+011B 900000      R     MOV     DPTR,#a
+011E EE                MOV     A,R6
+011F F0                MOVX    @DPTR,A
+0120 A3                INC     DPTR
+0121 EF                MOV     A,R7
+0122 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 216
+0123 900000      R     MOV     DPTR,#a
+0126 E0                MOVX    A,@DPTR
+0127 FE                MOV     R6,A
+0128 A3                INC     DPTR
+0129 E0                MOVX    A,@DPTR
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 26  
+
+012A FF                MOV     R7,A
+012B 120000      E     LCALL   _abs
+012E AC06              MOV     R4,AR6
+0130 AD07              MOV     R5,AR7
+0132 EC                MOV     A,R4
+0133 120000      E     LCALL   ?C?FCASTI
+0136 7B9F              MOV     R3,#09FH
+0138 7A8B              MOV     R2,#08BH
+013A 79AA              MOV     R1,#0AAH
+013C 7845              MOV     R0,#045H
+013E 120000      E     LCALL   ?C?FPCMP3
+0141 5059              JNC     ?C0028
+                                           ; SOURCE LINE # 217
+                                           ; SOURCE LINE # 218
+0143 900000      R     MOV     DPTR,#a
+0146 E0                MOVX    A,@DPTR
+0147 FE                MOV     R6,A
+0148 A3                INC     DPTR
+0149 E0                MOVX    A,@DPTR
+014A FF                MOV     R7,A
+014B D3                SETB    C
+014C EF                MOV     A,R7
+014D 9400              SUBB    A,#00H
+014F EE                MOV     A,R6
+0150 6480              XRL     A,#080H
+0152 9480              SUBB    A,#080H
+0154 4024              JC      ?C0029
+                                           ; SOURCE LINE # 219
+0156 900000      R     MOV     DPTR,#a
+0159 E0                MOVX    A,@DPTR
+015A FC                MOV     R4,A
+015B A3                INC     DPTR
+015C E0                MOVX    A,@DPTR
+015D FD                MOV     R5,A
+015E EC                MOV     A,R4
+015F 120000      E     LCALL   ?C?FCASTI
+0162 7B9F              MOV     R3,#09FH
+0164 7A8B              MOV     R2,#08BH
+0166 792A              MOV     R1,#02AH
+0168 78C6              MOV     R0,#0C6H
+016A 120000      E     LCALL   ?C?FPADD
+016D 120000      E     LCALL   ?C?CASTF
+0170 900000      R     MOV     DPTR,#a
+0173 EE                MOV     A,R6
+0174 F0                MOVX    @DPTR,A
+0175 A3                INC     DPTR
+0176 EF                MOV     A,R7
+0177 F0                MOVX    @DPTR,A
+0178 8022              SJMP    ?C0028
+017A         ?C0029:
+                                           ; SOURCE LINE # 221
+017A 900000      R     MOV     DPTR,#a
+017D E0                MOVX    A,@DPTR
+017E FC                MOV     R4,A
+017F A3                INC     DPTR
+0180 E0                MOVX    A,@DPTR
+0181 FD                MOV     R5,A
+0182 EC                MOV     A,R4
+0183 120000      E     LCALL   ?C?FCASTI
+0186 7B9F              MOV     R3,#09FH
+0188 7A8B              MOV     R2,#08BH
+018A 792A              MOV     R1,#02AH
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 27  
+
+018C 7846              MOV     R0,#046H
+018E 120000      E     LCALL   ?C?FPADD
+0191 120000      E     LCALL   ?C?CASTF
+0194 900000      R     MOV     DPTR,#a
+0197 EE                MOV     A,R6
+0198 F0                MOVX    @DPTR,A
+0199 A3                INC     DPTR
+019A EF                MOV     A,R7
+019B F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 222
+019C         ?C0028:
+                                           ; SOURCE LINE # 224
+019C 900000      R     MOV     DPTR,#how
+019F E0                MOVX    A,@DPTR
+01A0 FF                MOV     R7,A
+01A1 EF                MOV     A,R7
+01A2 6003              JZ      $ + 5H
+01A4 020000      R     LJMP    ?C0031
+                                           ; SOURCE LINE # 225
+                                           ; SOURCE LINE # 227
+01A7 900000      R     MOV     DPTR,#T
+01AA 120000      E     LCALL   ?C?PLDXDATA
+01AD E9                MOV     A,R1
+01AE 240A              ADD     A,#0AH
+01B0 F9                MOV     R1,A
+01B1 EA                MOV     A,R2
+01B2 3400              ADDC    A,#00H
+01B4 FA                MOV     R2,A
+01B5 120000      E     LCALL   ?C?LLDPTR
+01B8 900000      R     MOV     DPTR,#a
+01BB E0                MOVX    A,@DPTR
+01BC FC                MOV     R4,A
+01BD A3                INC     DPTR
+01BE E0                MOVX    A,@DPTR
+01BF FD                MOV     R5,A
+01C0 C3                CLR     C
+01C1 EF                MOV     A,R7
+01C2 9D                SUBB    A,R5
+01C3 FF                MOV     R7,A
+01C4 EE                MOV     A,R6
+01C5 9C                SUBB    A,R4
+01C6 FE                MOV     R6,A
+01C7 120000      E     LCALL   _abs
+01CA AC06              MOV     R4,AR6
+01CC AD07              MOV     R5,AR7
+01CE EC                MOV     A,R4
+01CF 120000      E     LCALL   ?C?FCASTI
+01D2 7B9F              MOV     R3,#09FH
+01D4 7A8B              MOV     R2,#08BH
+01D6 79AA              MOV     R1,#0AAH
+01D8 7845              MOV     R0,#045H
+01DA 120000      E     LCALL   ?C?FPCMP3
+01DD 4003              JC      $ + 5H
+01DF 020000      R     LJMP    ?C0032
+                                           ; SOURCE LINE # 228
+                                           ; SOURCE LINE # 229
+01E2 900000      R     MOV     DPTR,#T
+01E5 120000      E     LCALL   ?C?PLDXDATA
+01E8 E9                MOV     A,R1
+01E9 240A              ADD     A,#0AH
+01EB F9                MOV     R1,A
+01EC EA                MOV     A,R2
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 28  
+
+01ED 3400              ADDC    A,#00H
+01EF FA                MOV     R2,A
+01F0 120000      E     LCALL   ?C?LLDPTR
+01F3 7B00              MOV     R3,#00H
+01F5 7A00              MOV     R2,#00H
+01F7 7900              MOV     R1,#00H
+01F9 7800              MOV     R0,#00H
+01FB C3                CLR     C
+01FC 120000      E     LCALL   ?C?SLCMP
+01FF 5036              JNC     ?C0033
+                                           ; SOURCE LINE # 230
+0201 900000      R     MOV     DPTR,#T
+0204 120000      E     LCALL   ?C?PLDXDATA
+0207 E9                MOV     A,R1
+0208 240A              ADD     A,#0AH
+020A F9                MOV     R1,A
+020B EA                MOV     A,R2
+020C 3400              ADDC    A,#00H
+020E FA                MOV     R2,A
+020F 120000      E     LCALL   ?C?LLDPTR
+0212 EC                MOV     A,R4
+0213 120000      E     LCALL   ?C?FCASTL
+0216 7B9F              MOV     R3,#09FH
+0218 7A8B              MOV     R2,#08BH
+021A 792A              MOV     R1,#02AH
+021C 78C6              MOV     R0,#0C6H
+021E 120000      E     LCALL   ?C?FPADD
+0221 120000      E     LCALL   ?C?CASTF
+0224 900000      R     MOV     DPTR,#T
+0227 120000      E     LCALL   ?C?PLDXDATA
+022A E9                MOV     A,R1
+022B 240A              ADD     A,#0AH
+022D F9                MOV     R1,A
+022E EA                MOV     A,R2
+022F 3400              ADDC    A,#00H
+0231 FA                MOV     R2,A
+0232 120000      E     LCALL   ?C?LSTPTR
+0235 8034              SJMP    ?C0032
+0237         ?C0033:
+                                           ; SOURCE LINE # 232
+0237 900000      R     MOV     DPTR,#T
+023A 120000      E     LCALL   ?C?PLDXDATA
+023D E9                MOV     A,R1
+023E 240A              ADD     A,#0AH
+0240 F9                MOV     R1,A
+0241 EA                MOV     A,R2
+0242 3400              ADDC    A,#00H
+0244 FA                MOV     R2,A
+0245 120000      E     LCALL   ?C?LLDPTR
+0248 EC                MOV     A,R4
+0249 120000      E     LCALL   ?C?FCASTL
+024C 7B9F              MOV     R3,#09FH
+024E 7A8B              MOV     R2,#08BH
+0250 792A              MOV     R1,#02AH
+0252 7846              MOV     R0,#046H
+0254 120000      E     LCALL   ?C?FPADD
+0257 120000      E     LCALL   ?C?CASTF
+025A 900000      R     MOV     DPTR,#T
+025D 120000      E     LCALL   ?C?PLDXDATA
+0260 E9                MOV     A,R1
+0261 240A              ADD     A,#0AH
+0263 F9                MOV     R1,A
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 29  
+
+0264 EA                MOV     A,R2
+0265 3400              ADDC    A,#00H
+0267 FA                MOV     R2,A
+0268 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 233
+026B         ?C0032:
+                                           ; SOURCE LINE # 235
+026B 900000      R     MOV     DPTR,#T
+026E 120000      E     LCALL   ?C?PLDXDATA
+0271 E9                MOV     A,R1
+0272 240A              ADD     A,#0AH
+0274 F9                MOV     R1,A
+0275 EA                MOV     A,R2
+0276 3400              ADDC    A,#00H
+0278 FA                MOV     R2,A
+0279 120000      E     LCALL   ?C?LLDPTR
+027C 900000      R     MOV     DPTR,#a
+027F E0                MOVX    A,@DPTR
+0280 FC                MOV     R4,A
+0281 A3                INC     DPTR
+0282 E0                MOVX    A,@DPTR
+0283 FD                MOV     R5,A
+0284 C3                CLR     C
+0285 EF                MOV     A,R7
+0286 9D                SUBB    A,R5
+0287 FF                MOV     R7,A
+0288 EE                MOV     A,R6
+0289 9C                SUBB    A,R4
+028A FE                MOV     R6,A
+028B 120000      E     LCALL   _abs
+028E AC06              MOV     R4,AR6
+0290 AD07              MOV     R5,AR7
+0292 EC                MOV     A,R4
+0293 120000      E     LCALL   ?C?FCASTI
+0296 7B9F              MOV     R3,#09FH
+0298 7A8B              MOV     R2,#08BH
+029A 792A              MOV     R1,#02AH
+029C 7845              MOV     R0,#045H
+029E 120000      E     LCALL   ?C?FPCMP3
+02A1 4003              JC      $ + 5H
+02A3 020000      R     LJMP    ?C0038
+                                           ; SOURCE LINE # 236
+                                           ; SOURCE LINE # 237
+02A6 900000      R     MOV     DPTR,#T
+02A9 120000      E     LCALL   ?C?PLDXDATA
+02AC E9                MOV     A,R1
+02AD 240A              ADD     A,#0AH
+02AF F9                MOV     R1,A
+02B0 EA                MOV     A,R2
+02B1 3400              ADDC    A,#00H
+02B3 FA                MOV     R2,A
+02B4 120000      E     LCALL   ?C?LLDPTR
+02B7 7B00              MOV     R3,#00H
+02B9 7A00              MOV     R2,#00H
+02BB 7900              MOV     R1,#00H
+02BD 7800              MOV     R0,#00H
+02BF C3                CLR     C
+02C0 120000      E     LCALL   ?C?SLCMP
+02C3 5036              JNC     ?C0036
+                                           ; SOURCE LINE # 238
+02C5 900000      R     MOV     DPTR,#T
+02C8 120000      E     LCALL   ?C?PLDXDATA
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 30  
+
+02CB E9                MOV     A,R1
+02CC 240A              ADD     A,#0AH
+02CE F9                MOV     R1,A
+02CF EA                MOV     A,R2
+02D0 3400              ADDC    A,#00H
+02D2 FA                MOV     R2,A
+02D3 120000      E     LCALL   ?C?LLDPTR
+02D6 EC                MOV     A,R4
+02D7 120000      E     LCALL   ?C?FCASTL
+02DA 7B9F              MOV     R3,#09FH
+02DC 7A8B              MOV     R2,#08BH
+02DE 79AA              MOV     R1,#0AAH
+02E0 78C5              MOV     R0,#0C5H
+02E2 120000      E     LCALL   ?C?FPADD
+02E5 120000      E     LCALL   ?C?CASTF
+02E8 900000      R     MOV     DPTR,#T
+02EB 120000      E     LCALL   ?C?PLDXDATA
+02EE E9                MOV     A,R1
+02EF 240A              ADD     A,#0AH
+02F1 F9                MOV     R1,A
+02F2 EA                MOV     A,R2
+02F3 3400              ADDC    A,#00H
+02F5 FA                MOV     R2,A
+02F6 120000      E     LCALL   ?C?LSTPTR
+02F9 8034              SJMP    ?C0037
+02FB         ?C0036:
+                                           ; SOURCE LINE # 240
+02FB 900000      R     MOV     DPTR,#T
+02FE 120000      E     LCALL   ?C?PLDXDATA
+0301 E9                MOV     A,R1
+0302 240A              ADD     A,#0AH
+0304 F9                MOV     R1,A
+0305 EA                MOV     A,R2
+0306 3400              ADDC    A,#00H
+0308 FA                MOV     R2,A
+0309 120000      E     LCALL   ?C?LLDPTR
+030C EC                MOV     A,R4
+030D 120000      E     LCALL   ?C?FCASTL
+0310 7B9F              MOV     R3,#09FH
+0312 7A8B              MOV     R2,#08BH
+0314 79AA              MOV     R1,#0AAH
+0316 7845              MOV     R0,#045H
+0318 120000      E     LCALL   ?C?FPADD
+031B 120000      E     LCALL   ?C?CASTF
+031E 900000      R     MOV     DPTR,#T
+0321 120000      E     LCALL   ?C?PLDXDATA
+0324 E9                MOV     A,R1
+0325 240A              ADD     A,#0AH
+0327 F9                MOV     R1,A
+0328 EA                MOV     A,R2
+0329 3400              ADDC    A,#00H
+032B FA                MOV     R2,A
+032C 120000      E     LCALL   ?C?LSTPTR
+032F         ?C0037:
+                                           ; SOURCE LINE # 241
+032F 900000      R     MOV     DPTR,#T
+0332 120000      E     LCALL   ?C?PLDXDATA
+0335 E9                MOV     A,R1
+0336 2406              ADD     A,#06H
+0338 F9                MOV     R1,A
+0339 EA                MOV     A,R2
+033A 3400              ADDC    A,#00H
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 31  
+
+033C FA                MOV     R2,A
+033D 120000      E     LCALL   ?C?LLDPTR
+0340 120000      E     LCALL   ?C?LNEG
+0343 900000      R     MOV     DPTR,#T
+0346 120000      E     LCALL   ?C?PLDXDATA
+0349 E9                MOV     A,R1
+034A 2406              ADD     A,#06H
+034C F9                MOV     R1,A
+034D EA                MOV     A,R2
+034E 3400              ADDC    A,#00H
+0350 FA                MOV     R2,A
+0351 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 242
+                                           ; SOURCE LINE # 243
+0354 020000      R     LJMP    ?C0038
+0357         ?C0031:
+                                           ; SOURCE LINE # 245
+                                           ; SOURCE LINE # 246
+0357 900000      R     MOV     DPTR,#how
+035A E0                MOVX    A,@DPTR
+035B FF                MOV     R7,A
+035C EF                MOV     A,R7
+035D 6402              XRL     A,#02H
+035F 6003              JZ      $ + 5H
+0361 020000      R     LJMP    ?C0039
+                                           ; SOURCE LINE # 247
+                                           ; SOURCE LINE # 248
+0364 900000      R     MOV     DPTR,#T
+0367 120000      E     LCALL   ?C?PLDXDATA
+036A E9                MOV     A,R1
+036B 240A              ADD     A,#0AH
+036D F9                MOV     R1,A
+036E EA                MOV     A,R2
+036F 3400              ADDC    A,#00H
+0371 FA                MOV     R2,A
+0372 120000      E     LCALL   ?C?LLDPTR
+0375 7B00              MOV     R3,#00H
+0377 7A00              MOV     R2,#00H
+0379 7900              MOV     R1,#00H
+037B 7800              MOV     R0,#00H
+037D C3                CLR     C
+037E 120000      E     LCALL   ?C?SLCMP
+0381 5036              JNC     ?C0040
+                                           ; SOURCE LINE # 249
+0383 900000      R     MOV     DPTR,#T
+0386 120000      E     LCALL   ?C?PLDXDATA
+0389 E9                MOV     A,R1
+038A 240A              ADD     A,#0AH
+038C F9                MOV     R1,A
+038D EA                MOV     A,R2
+038E 3400              ADDC    A,#00H
+0390 FA                MOV     R2,A
+0391 120000      E     LCALL   ?C?LLDPTR
+0394 EC                MOV     A,R4
+0395 120000      E     LCALL   ?C?FCASTL
+0398 7B9F              MOV     R3,#09FH
+039A 7A8B              MOV     R2,#08BH
+039C 79AA              MOV     R1,#0AAH
+039E 78C5              MOV     R0,#0C5H
+03A0 120000      E     LCALL   ?C?FPADD
+03A3 120000      E     LCALL   ?C?CASTF
+03A6 900000      R     MOV     DPTR,#T
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 32  
+
+03A9 120000      E     LCALL   ?C?PLDXDATA
+03AC E9                MOV     A,R1
+03AD 240A              ADD     A,#0AH
+03AF F9                MOV     R1,A
+03B0 EA                MOV     A,R2
+03B1 3400              ADDC    A,#00H
+03B3 FA                MOV     R2,A
+03B4 120000      E     LCALL   ?C?LSTPTR
+03B7 8034              SJMP    ?C0041
+03B9         ?C0040:
+                                           ; SOURCE LINE # 251
+03B9 900000      R     MOV     DPTR,#T
+03BC 120000      E     LCALL   ?C?PLDXDATA
+03BF E9                MOV     A,R1
+03C0 240A              ADD     A,#0AH
+03C2 F9                MOV     R1,A
+03C3 EA                MOV     A,R2
+03C4 3400              ADDC    A,#00H
+03C6 FA                MOV     R2,A
+03C7 120000      E     LCALL   ?C?LLDPTR
+03CA EC                MOV     A,R4
+03CB 120000      E     LCALL   ?C?FCASTL
+03CE 7B9F              MOV     R3,#09FH
+03D0 7A8B              MOV     R2,#08BH
+03D2 79AA              MOV     R1,#0AAH
+03D4 7845              MOV     R0,#045H
+03D6 120000      E     LCALL   ?C?FPADD
+03D9 120000      E     LCALL   ?C?CASTF
+03DC 900000      R     MOV     DPTR,#T
+03DF 120000      E     LCALL   ?C?PLDXDATA
+03E2 E9                MOV     A,R1
+03E3 240A              ADD     A,#0AH
+03E5 F9                MOV     R1,A
+03E6 EA                MOV     A,R2
+03E7 3400              ADDC    A,#00H
+03E9 FA                MOV     R2,A
+03EA 120000      E     LCALL   ?C?LSTPTR
+03ED         ?C0041:
+                                           ; SOURCE LINE # 252
+03ED 900000      R     MOV     DPTR,#T
+03F0 120000      E     LCALL   ?C?PLDXDATA
+03F3 E9                MOV     A,R1
+03F4 2406              ADD     A,#06H
+03F6 F9                MOV     R1,A
+03F7 EA                MOV     A,R2
+03F8 3400              ADDC    A,#00H
+03FA FA                MOV     R2,A
+03FB 120000      E     LCALL   ?C?LLDPTR
+03FE 120000      E     LCALL   ?C?LNEG
+0401 900000      R     MOV     DPTR,#T
+0404 120000      E     LCALL   ?C?PLDXDATA
+0407 E9                MOV     A,R1
+0408 2406              ADD     A,#06H
+040A F9                MOV     R1,A
+040B EA                MOV     A,R2
+040C 3400              ADDC    A,#00H
+040E FA                MOV     R2,A
+040F 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 253
+0412         ?C0039:
+                                           ; SOURCE LINE # 255
+0412 900000      R     MOV     DPTR,#T
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 33  
+
+0415 120000      E     LCALL   ?C?PLDXDATA
+0418 E9                MOV     A,R1
+0419 240A              ADD     A,#0AH
+041B F9                MOV     R1,A
+041C EA                MOV     A,R2
+041D 3400              ADDC    A,#00H
+041F FA                MOV     R2,A
+0420 120000      E     LCALL   ?C?LLDPTR
+0423 900000      R     MOV     DPTR,#a
+0426 E0                MOVX    A,@DPTR
+0427 FC                MOV     R4,A
+0428 A3                INC     DPTR
+0429 E0                MOVX    A,@DPTR
+042A FD                MOV     R5,A
+042B C3                CLR     C
+042C EF                MOV     A,R7
+042D 9D                SUBB    A,R5
+042E FF                MOV     R7,A
+042F EE                MOV     A,R6
+0430 9C                SUBB    A,R4
+0431 FE                MOV     R6,A
+0432 120000      E     LCALL   _abs
+0435 AC06              MOV     R4,AR6
+0437 AD07              MOV     R5,AR7
+0439 EC                MOV     A,R4
+043A 120000      E     LCALL   ?C?FCASTI
+043D 7B9F              MOV     R3,#09FH
+043F 7A8B              MOV     R2,#08BH
+0441 79AA              MOV     R1,#0AAH
+0443 7845              MOV     R0,#045H
+0445 120000      E     LCALL   ?C?FPCMP3
+0448 4003              JC      $ + 5H
+044A 020000      R     LJMP    ?C0038
+                                           ; SOURCE LINE # 256
+                                           ; SOURCE LINE # 257
+044D 900000      R     MOV     DPTR,#T
+0450 120000      E     LCALL   ?C?PLDXDATA
+0453 E9                MOV     A,R1
+0454 240A              ADD     A,#0AH
+0456 F9                MOV     R1,A
+0457 EA                MOV     A,R2
+0458 3400              ADDC    A,#00H
+045A FA                MOV     R2,A
+045B 120000      E     LCALL   ?C?LLDPTR
+045E 7B00              MOV     R3,#00H
+0460 7A00              MOV     R2,#00H
+0462 7900              MOV     R1,#00H
+0464 7800              MOV     R0,#00H
+0466 C3                CLR     C
+0467 120000      E     LCALL   ?C?SLCMP
+046A 5036              JNC     ?C0043
+                                           ; SOURCE LINE # 258
+046C 900000      R     MOV     DPTR,#T
+046F 120000      E     LCALL   ?C?PLDXDATA
+0472 E9                MOV     A,R1
+0473 240A              ADD     A,#0AH
+0475 F9                MOV     R1,A
+0476 EA                MOV     A,R2
+0477 3400              ADDC    A,#00H
+0479 FA                MOV     R2,A
+047A 120000      E     LCALL   ?C?LLDPTR
+047D EC                MOV     A,R4
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 34  
+
+047E 120000      E     LCALL   ?C?FCASTL
+0481 7B9F              MOV     R3,#09FH
+0483 7A8B              MOV     R2,#08BH
+0485 792A              MOV     R1,#02AH
+0487 78C6              MOV     R0,#0C6H
+0489 120000      E     LCALL   ?C?FPADD
+048C 120000      E     LCALL   ?C?CASTF
+048F 900000      R     MOV     DPTR,#T
+0492 120000      E     LCALL   ?C?PLDXDATA
+0495 E9                MOV     A,R1
+0496 240A              ADD     A,#0AH
+0498 F9                MOV     R1,A
+0499 EA                MOV     A,R2
+049A 3400              ADDC    A,#00H
+049C FA                MOV     R2,A
+049D 120000      E     LCALL   ?C?LSTPTR
+04A0 8034              SJMP    ?C0038
+04A2         ?C0043:
+                                           ; SOURCE LINE # 260
+04A2 900000      R     MOV     DPTR,#T
+04A5 120000      E     LCALL   ?C?PLDXDATA
+04A8 E9                MOV     A,R1
+04A9 240A              ADD     A,#0AH
+04AB F9                MOV     R1,A
+04AC EA                MOV     A,R2
+04AD 3400              ADDC    A,#00H
+04AF FA                MOV     R2,A
+04B0 120000      E     LCALL   ?C?LLDPTR
+04B3 EC                MOV     A,R4
+04B4 120000      E     LCALL   ?C?FCASTL
+04B7 7B9F              MOV     R3,#09FH
+04B9 7A8B              MOV     R2,#08BH
+04BB 792A              MOV     R1,#02AH
+04BD 7846              MOV     R0,#046H
+04BF 120000      E     LCALL   ?C?FPADD
+04C2 120000      E     LCALL   ?C?CASTF
+04C5 900000      R     MOV     DPTR,#T
+04C8 120000      E     LCALL   ?C?PLDXDATA
+04CB E9                MOV     A,R1
+04CC 240A              ADD     A,#0AH
+04CE F9                MOV     R1,A
+04CF EA                MOV     A,R2
+04D0 3400              ADDC    A,#00H
+04D2 FA                MOV     R2,A
+04D3 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 261
+                                           ; SOURCE LINE # 262
+04D6         ?C0038:
+                                           ; SOURCE LINE # 264
+04D6 900000      R     MOV     DPTR,#T
+04D9 120000      E     LCALL   ?C?PLDXDATA
+04DC E9                MOV     A,R1
+04DD 2406              ADD     A,#06H
+04DF F9                MOV     R1,A
+04E0 EA                MOV     A,R2
+04E1 3400              ADDC    A,#00H
+04E3 FA                MOV     R2,A
+04E4 C003              PUSH    AR3
+04E6 C002              PUSH    AR2
+04E8 C001              PUSH    AR1
+04EA 120000      E     LCALL   ?C?LLDPTR
+04ED 900000      R     MOV     DPTR,#T
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 35  
+
+04F0 120000      E     LCALL   ?C?PLDXDATA
+04F3 E9                MOV     A,R1
+04F4 2412              ADD     A,#012H
+04F6 F9                MOV     R1,A
+04F7 EA                MOV     A,R2
+04F8 3400              ADDC    A,#00H
+04FA FA                MOV     R2,A
+04FB 120000      E     LCALL   ?C?LLDPTR0
+04FE 120000      E     LCALL   ?C?LADD
+0501 D001              POP     AR1
+0503 D002              POP     AR2
+0505 D003              POP     AR3
+0507 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 266
+050A 900000      R     MOV     DPTR,#pos
+050D 120000      E     LCALL   ?C?PLDXDATA
+0510 C003              PUSH    AR3
+0512 C002              PUSH    AR2
+0514 C001              PUSH    AR1
+0516 900000      R     MOV     DPTR,#T
+0519 120000      E     LCALL   ?C?PLDXDATA
+051C E9                MOV     A,R1
+051D 24EE              ADD     A,#0EEH
+051F F9                MOV     R1,A
+0520 EA                MOV     A,R2
+0521 3400              ADDC    A,#00H
+0523 FA                MOV     R2,A
+0524 A801              MOV     R0,AR1
+0526 AC02              MOV     R4,AR2
+0528 AD03              MOV     R5,AR3
+052A D001              POP     AR1
+052C D002              POP     AR2
+052E D003              POP     AR3
+0530 7E00              MOV     R6,#00H
+0532 7F08              MOV     R7,#08H
+0534 120000      E     LCALL   ?C?COPYAMD
+                                           ; SOURCE LINE # 267
+0537 900000      R     MOV     DPTR,#T
+053A 120000      E     LCALL   ?C?PLDXDATA
+053D E9                MOV     A,R1
+053E 240A              ADD     A,#0AH
+0540 F9                MOV     R1,A
+0541 EA                MOV     A,R2
+0542 3400              ADDC    A,#00H
+0544 FA                MOV     R2,A
+0545 C003              PUSH    AR3
+0547 C002              PUSH    AR2
+0549 C001              PUSH    AR1
+054B 120000      E     LCALL   ?C?LLDPTR
+054E C004              PUSH    AR4
+0550 C005              PUSH    AR5
+0552 C006              PUSH    AR6
+0554 C007              PUSH    AR7
+0556 900000      R     MOV     DPTR,#T
+0559 120000      E     LCALL   ?C?PLDXDATA
+055C E9                MOV     A,R1
+055D 24F6              ADD     A,#0F6H
+055F F9                MOV     R1,A
+0560 EA                MOV     A,R2
+0561 3400              ADDC    A,#00H
+0563 FA                MOV     R2,A
+0564 120000      E     LCALL   ?C?LLDPTR
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 36  
+
+0567 C004              PUSH    AR4
+0569 C005              PUSH    AR5
+056B C006              PUSH    AR6
+056D C007              PUSH    AR7
+056F 900000      R     MOV     DPTR,#a
+0572 E0                MOVX    A,@DPTR
+0573 FE                MOV     R6,A
+0574 A3                INC     DPTR
+0575 E0                MOVX    A,@DPTR
+0576 FF                MOV     R7,A
+0577 AB07              MOV     R3,AR7
+0579 AA06              MOV     R2,AR6
+057B EA                MOV     A,R2
+057C 33                RLC     A
+057D 95E0              SUBB    A,ACC
+057F F9                MOV     R1,A
+0580 F8                MOV     R0,A
+0581 D007              POP     AR7
+0583 D006              POP     AR6
+0585 D005              POP     AR5
+0587 D004              POP     AR4
+0589 120000      E     LCALL   ?C?LSUB
+058C A804              MOV     R0,AR4
+058E A905              MOV     R1,AR5
+0590 AA06              MOV     R2,AR6
+0592 AB07              MOV     R3,AR7
+0594 D007              POP     AR7
+0596 D006              POP     AR6
+0598 D005              POP     AR5
+059A D004              POP     AR4
+059C 120000      E     LCALL   ?C?LADD
+059F D001              POP     AR1
+05A1 D002              POP     AR2
+05A3 D003              POP     AR3
+05A5 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 268
+05A8 900000      R     MOV     DPTR,#T
+05AB 120000      E     LCALL   ?C?PLDXDATA
+05AE 7404              MOV     A,#04H
+05B0 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 269
+05B3 22                RET     
+             ; FUNCTION _trajectory_goto_xy (END)
+
+             ; FUNCTION _trajectory_stop (BEGIN)
+                                           ; SOURCE LINE # 271
+0000 900000      R     MOV     DPTR,#traj
+0003 120000      E     LCALL   ?C?PSTXDATA
+0006 900000      R     MOV     DPTR,#flags
+0009 ED                MOV     A,R5
+000A F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 272
+                                           ; SOURCE LINE # 273
+000B 900000      R     MOV     DPTR,#flags
+000E E0                MOVX    A,@DPTR
+000F FF                MOV     R7,A
+0010 EF                MOV     A,R7
+0011 5477              ANL     A,#077H
+0013 FF                MOV     R7,A
+0014 EF                MOV     A,R7
+0015 120000      E     LCALL   ?C?CCASE
+0018 0000        R     DW      ?C0049
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 37  
+
+001A 01                DB      01H
+001B 0000        R     DW      ?C0048
+001D 02                DB      02H
+001E 0000        R     DW      ?C0047
+0020 04                DB      04H
+0021 0000              DW      00H
+0023 0000        R     DW      ?C0050
+                                           ; SOURCE LINE # 274
+                                           ; SOURCE LINE # 275
+0025         ?C0047:
+                                           ; SOURCE LINE # 277
+0025 900000      R     MOV     DPTR,#traj
+0028 120000      E     LCALL   ?C?PLDXDATA
+002B E4                CLR     A
+002C 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 279
+002F 22                RET     
+                                           ; SOURCE LINE # 280
+0030         ?C0048:
+                                           ; SOURCE LINE # 282
+0030 900000      R     MOV     DPTR,#traj
+0033 120000      E     LCALL   ?C?PLDXDATA
+0036 E9                MOV     A,R1
+0037 2412              ADD     A,#012H
+0039 F9                MOV     R1,A
+003A EA                MOV     A,R2
+003B 3400              ADDC    A,#00H
+003D FA                MOV     R2,A
+003E 120000      E     LCALL   ?C?LLDPTR
+0041 900000      R     MOV     DPTR,#traj
+0044 120000      E     LCALL   ?C?PLDXDATA
+0047 E9                MOV     A,R1
+0048 2406              ADD     A,#06H
+004A F9                MOV     R1,A
+004B EA                MOV     A,R2
+004C 3400              ADDC    A,#00H
+004E FA                MOV     R2,A
+004F 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 283
+0052 900000      R     MOV     DPTR,#traj
+0055 120000      E     LCALL   ?C?PLDXDATA
+0058 7402              MOV     A,#02H
+005A 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 285
+005D 22                RET     
+                                           ; SOURCE LINE # 286
+005E         ?C0049:
+                                           ; SOURCE LINE # 288
+005E 900000      R     MOV     DPTR,#traj
+0061 120000      E     LCALL   ?C?PLDXDATA
+0064 E9                MOV     A,R1
+0065 248E              ADD     A,#08EH
+0067 F9                MOV     R1,A
+0068 EA                MOV     A,R2
+0069 3400              ADDC    A,#00H
+006B FA                MOV     R2,A
+006C C003              PUSH    AR3
+006E C002              PUSH    AR2
+0070 C001              PUSH    AR1
+0072 900000      R     MOV     DPTR,#traj
+0075 120000      E     LCALL   ?C?PLDXDATA
+0078 E9                MOV     A,R1
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 38  
+
+0079 2412              ADD     A,#012H
+007B F9                MOV     R1,A
+007C EA                MOV     A,R2
+007D 3400              ADDC    A,#00H
+007F FA                MOV     R2,A
+0080 900000      E     MOV     DPTR,#?_cs_stop?BYTE+03H
+0083 120000      E     LCALL   ?C?PSTXDATA
+0086 D001              POP     AR1
+0088 D002              POP     AR2
+008A D003              POP     AR3
+008C 120000      E     LCALL   _cs_stop
+                                           ; SOURCE LINE # 289
+008F 900000      R     MOV     DPTR,#traj
+0092 120000      E     LCALL   ?C?PLDXDATA
+0095 E9                MOV     A,R1
+0096 24D8              ADD     A,#0D8H
+0098 F9                MOV     R1,A
+0099 EA                MOV     A,R2
+009A 3400              ADDC    A,#00H
+009C FA                MOV     R2,A
+009D 120000      E     LCALL   ?C?LLDPTR
+00A0 900000      R     MOV     DPTR,#traj
+00A3 120000      E     LCALL   ?C?PLDXDATA
+00A6 E9                MOV     A,R1
+00A7 2406              ADD     A,#06H
+00A9 F9                MOV     R1,A
+00AA EA                MOV     A,R2
+00AB 3400              ADDC    A,#00H
+00AD FA                MOV     R2,A
+00AE 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 290
+00B1 900000      R     MOV     DPTR,#traj
+00B4 120000      E     LCALL   ?C?PLDXDATA
+00B7 E9                MOV     A,R1
+00B8 247C              ADD     A,#07CH
+00BA F9                MOV     R1,A
+00BB EA                MOV     A,R2
+00BC 3400              ADDC    A,#00H
+00BE FA                MOV     R2,A
+00BF 120000      E     LCALL   ?C?LLDPTR
+00C2 900000      R     MOV     DPTR,#traj
+00C5 120000      E     LCALL   ?C?PLDXDATA
+00C8 E9                MOV     A,R1
+00C9 240A              ADD     A,#0AH
+00CB F9                MOV     R1,A
+00CC EA                MOV     A,R2
+00CD 3400              ADDC    A,#00H
+00CF FA                MOV     R2,A
+00D0 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 291
+00D3 900000      R     MOV     DPTR,#traj
+00D6 120000      E     LCALL   ?C?PLDXDATA
+00D9 E9                MOV     A,R1
+00DA 2406              ADD     A,#06H
+00DC F9                MOV     R1,A
+00DD EA                MOV     A,R2
+00DE 3400              ADDC    A,#00H
+00E0 FA                MOV     R2,A
+00E1 C003              PUSH    AR3
+00E3 C002              PUSH    AR2
+00E5 C001              PUSH    AR1
+00E7 900000      R     MOV     DPTR,#traj
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 39  
+
+00EA 120000      E     LCALL   ?C?PLDXDATA
+00ED E9                MOV     A,R1
+00EE 24EE              ADD     A,#0EEH
+00F0 F9                MOV     R1,A
+00F1 EA                MOV     A,R2
+00F2 3400              ADDC    A,#00H
+00F4 FA                MOV     R2,A
+00F5 900000      E     MOV     DPTR,#?_cartesian_from_polar?BYTE+03H
+00F8 120000      E     LCALL   ?C?PSTXDATA
+00FB D001              POP     AR1
+00FD D002              POP     AR2
+00FF D003              POP     AR3
+0101 120000      E     LCALL   _cartesian_from_polar
+                                           ; SOURCE LINE # 292
+0104 900000      R     MOV     DPTR,#traj
+0107 120000      E     LCALL   ?C?PLDXDATA
+010A 7401              MOV     A,#01H
+010C 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 294
+                                           ; SOURCE LINE # 295
+                                           ; SOURCE LINE # 296
+010F         ?C0050:
+010F 22                RET     
+             ; FUNCTION _trajectory_stop (END)
+
+             ; FUNCTION _trajectory_check_xy (BEGIN)
+                                           ; SOURCE LINE # 298
+0000 900000      R     MOV     DPTR,#traj
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 299
+                                           ; SOURCE LINE # 300
+0006 900000      R     MOV     DPTR,#traj
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 24EE              ADD     A,#0EEH
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3400              ADDC    A,#00H
+0013 FA                MOV     R2,A
+0014 C003              PUSH    AR3
+0016 C002              PUSH    AR2
+0018 C001              PUSH    AR1
+001A 900000      R     MOV     DPTR,#traj
+001D 120000      E     LCALL   ?C?PLDXDATA
+0020 E9                MOV     A,R1
+0021 24FA              ADD     A,#0FAH
+0023 F9                MOV     R1,A
+0024 EA                MOV     A,R2
+0025 3400              ADDC    A,#00H
+0027 FA                MOV     R2,A
+0028 900000      E     MOV     DPTR,#?_euclidian_distance?BYTE+03H
+002B 120000      E     LCALL   ?C?PSTXDATA
+002E D001              POP     AR1
+0030 D002              POP     AR2
+0032 D003              POP     AR3
+0034 120000      E     LCALL   _euclidian_distance
+0037 7B00              MOV     R3,#00H
+0039 7A00              MOV     R2,#00H
+003B 79A0              MOV     R1,#0A0H
+003D 7841              MOV     R0,#041H
+003F 120000      E     LCALL   ?C?FPCMP3
+0042 400B              JC      ?C0051
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 40  
+
+                                           ; SOURCE LINE # 301
+                                           ; SOURCE LINE # 304
+0044 900000      R     MOV     DPTR,#traj
+0047 120000      E     LCALL   ?C?PLDXDATA
+004A E4                CLR     A
+004B 120000      E     LCALL   ?C?CSTPTR
+                                           ; SOURCE LINE # 305
+004E 22                RET     
+004F         ?C0051:
+                                           ; SOURCE LINE # 307
+004F 900000      R     MOV     DPTR,#traj
+0052 120000      E     LCALL   ?C?PLDXDATA
+0055 C003              PUSH    AR3
+0057 C002              PUSH    AR2
+0059 C001              PUSH    AR1
+005B 900000      R     MOV     DPTR,#traj
+005E 120000      E     LCALL   ?C?PLDXDATA
+0061 E9                MOV     A,R1
+0062 24EE              ADD     A,#0EEH
+0064 F9                MOV     R1,A
+0065 EA                MOV     A,R2
+0066 3400              ADDC    A,#00H
+0068 FA                MOV     R2,A
+0069 900000      R     MOV     DPTR,#?_trajectory_goto_xy?BYTE+03H
+006C 120000      E     LCALL   ?C?PSTXDATA
+006F 900000      R     MOV     DPTR,#?_trajectory_goto_xy?BYTE+06H
+0072 E4                CLR     A
+0073 F0                MOVX    @DPTR,A
+0074 D001              POP     AR1
+0076 D002              POP     AR2
+0078 D003              POP     AR3
+007A 120000      R     LCALL   _trajectory_goto_xy
+                                           ; SOURCE LINE # 308
+007D         ?C0053:
+007D 22                RET     
+             ; FUNCTION _trajectory_check_xy (END)
+
+             ; FUNCTION _trajectory_goto_xy2 (BEGIN)
+                                           ; SOURCE LINE # 310
+0000 900000      R     MOV     DPTR,#traj
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 311
+                                           ; SOURCE LINE # 312
+0006 900000      R     MOV     DPTR,#traj
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 248E              ADD     A,#08EH
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3400              ADDC    A,#00H
+0013 FA                MOV     R2,A
+0014 900000      R     MOV     DPTR,#d_speed_pos
+0017 E0                MOVX    A,@DPTR
+0018 FC                MOV     R4,A
+0019 A3                INC     DPTR
+001A E0                MOVX    A,@DPTR
+001B FD                MOV     R5,A
+001C C004              PUSH    AR4
+001E C005              PUSH    AR5
+0020 900000      R     MOV     DPTR,#d_speed_neg
+0023 E0                MOVX    A,@DPTR
+0024 FE                MOV     R6,A
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 41  
+
+0025 A3                INC     DPTR
+0026 E0                MOVX    A,@DPTR
+0027 FF                MOV     R7,A
+0028 900000      E     MOV     DPTR,#?_speed_filter_set_cinematic_parameter?BYTE+05H
+002B EE                MOV     A,R6
+002C F0                MOVX    @DPTR,A
+002D A3                INC     DPTR
+002E EF                MOV     A,R7
+002F F0                MOVX    @DPTR,A
+0030 900000      R     MOV     DPTR,#d_acc_pos
+0033 120000      E     LCALL   ?C?LLDXDATA
+0036 900000      E     MOV     DPTR,#?_speed_filter_set_cinematic_parameter?BYTE+07H
+0039 120000      E     LCALL   ?C?LSTXDATA
+003C 900000      R     MOV     DPTR,#d_acc_neg
+003F 120000      E     LCALL   ?C?LLDXDATA
+0042 900000      E     MOV     DPTR,#?_speed_filter_set_cinematic_parameter?BYTE+0BH
+0045 120000      E     LCALL   ?C?LSTXDATA
+0048 D005              POP     AR5
+004A D004              POP     AR4
+004C 120000      E     LCALL   _speed_filter_set_cinematic_parameter
+                                           ; SOURCE LINE # 313
+004F 900000      R     MOV     DPTR,#traj
+0052 120000      E     LCALL   ?C?PLDXDATA
+0055 E9                MOV     A,R1
+0056 2432              ADD     A,#032H
+0058 F9                MOV     R1,A
+0059 EA                MOV     A,R2
+005A 3400              ADDC    A,#00H
+005C FA                MOV     R2,A
+005D 900000      R     MOV     DPTR,#a_speed_pos
+0060 E0                MOVX    A,@DPTR
+0061 FC                MOV     R4,A
+0062 A3                INC     DPTR
+0063 E0                MOVX    A,@DPTR
+0064 FD                MOV     R5,A
+0065 C004              PUSH    AR4
+0067 C005              PUSH    AR5
+0069 900000      R     MOV     DPTR,#a_speed_neg
+006C E0                MOVX    A,@DPTR
+006D FE                MOV     R6,A
+006E A3                INC     DPTR
+006F E0                MOVX    A,@DPTR
+0070 FF                MOV     R7,A
+0071 900000      E     MOV     DPTR,#?_speed_filter_set_cinematic_parameter?BYTE+05H
+0074 EE                MOV     A,R6
+0075 F0                MOVX    @DPTR,A
+0076 A3                INC     DPTR
+0077 EF                MOV     A,R7
+0078 F0                MOVX    @DPTR,A
+0079 900000      R     MOV     DPTR,#a_acc_pos
+007C 120000      E     LCALL   ?C?LLDXDATA
+007F 900000      E     MOV     DPTR,#?_speed_filter_set_cinematic_parameter?BYTE+07H
+0082 120000      E     LCALL   ?C?LSTXDATA
+0085 900000      R     MOV     DPTR,#a_acc_neg
+0088 120000      E     LCALL   ?C?LLDXDATA
+008B 900000      E     MOV     DPTR,#?_speed_filter_set_cinematic_parameter?BYTE+0BH
+008E 120000      E     LCALL   ?C?LSTXDATA
+0091 D005              POP     AR5
+0093 D004              POP     AR4
+0095 120000      E     LCALL   _speed_filter_set_cinematic_parameter
+                                           ; SOURCE LINE # 314
+0098 900000      R     MOV     DPTR,#traj
+C51 COMPILER V9.03   TRAJECTORY                                                            05/13/2012 22:25:52 PAGE 42  
+
+009B 120000      E     LCALL   ?C?PLDXDATA
+009E C003              PUSH    AR3
+00A0 C002              PUSH    AR2
+00A2 C001              PUSH    AR1
+00A4 900000      R     MOV     DPTR,#pos
+00A7 120000      E     LCALL   ?C?PLDXDATA
+00AA 900000      R     MOV     DPTR,#?_trajectory_goto_xy?BYTE+03H
+00AD 120000      E     LCALL   ?C?PSTXDATA
+00B0 900000      R     MOV     DPTR,#how
+00B3 E0                MOVX    A,@DPTR
+00B4 FF                MOV     R7,A
+00B5 900000      R     MOV     DPTR,#?_trajectory_goto_xy?BYTE+06H
+00B8 EF                MOV     A,R7
+00B9 F0                MOVX    @DPTR,A
+00BA D001              POP     AR1
+00BC D002              POP     AR2
+00BE D003              POP     AR3
+00C0 120000      R     LCALL   _trajectory_goto_xy
+                                           ; SOURCE LINE # 315
+00C3 22                RET     
+             ; FUNCTION _trajectory_goto_xy2 (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   3828    ----
+   CONSTANT SIZE    =     16    ----
+   XDATA SIZE       =      8      82
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

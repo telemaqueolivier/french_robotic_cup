@@ -1,0 +1,278 @@
+C51 COMPILER V9.03   POSITION                                                              05/13/2012 22:25:52 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE POSITION
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\position.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\posi
+                    -tion.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\position.lst) CD DB NOIP OT(2,SIZE) INCDIR(Generat
+                    -ed_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\position.obj)
+
+line level    source
+
+   1          #include "position.h"
+   2          #include "uart_pc.h"
+   3          #include <stdio.h>
+   4          #include <math.h>
+   5          #include "global_variable.h"
+   6          #include "robot_system.h"
+   7          #include "trajectory.h"
+   8          
+   9          void position_init (struct robot_position* robot)
+  10          {
+  11   1              robot->xy.y = 0;
+  12   1              robot->xy.x = 0;
+  13   1              robot->old_polar.distance = 0;
+  14   1              robot->old_polar.angle = ANGLE_INIT;
+  15   1      }
+  16          
+  17          void process_xy(struct trajectory* traj)
+  18          {
+  19   1              struct polar delta_polar;
+  20   1              struct cartesian delta_xy;
+  21   1              
+  22   1              delta_polar.distance = /*abs*/ (traj->robot.pext_prev.distance - traj->robot_pos.old_polar.distance);//te
+             -st ? faire, abs est une faute empêche le bon fonctionnement en cas de marche arrière du robot
+  23   1              delta_polar.angle = (traj->robot.pext_prev.angle + ANGLE_INIT + traj->robot_pos.old_polar.angle) >> 1;
+  24   1              
+  25   1              cartesian_from_polar(&delta_polar, &delta_xy);
+  26   1      
+  27   1              traj->robot_pos.xy.y += delta_xy.y;
+  28   1              traj->robot_pos.xy.x += delta_xy.x;
+  29   1              traj->robot_pos.old_polar = traj->robot.pext_prev;
+  30   1      }
+C51 COMPILER V9.03   POSITION                                                              05/13/2012 22:25:52 PAGE 2   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION _position_init (BEGIN)
+                                           ; SOURCE LINE # 9
+0000 900000      R     MOV     DPTR,#robot
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 10
+                                           ; SOURCE LINE # 11
+0006 7F00              MOV     R7,#00H
+0008 7E00              MOV     R6,#00H
+000A 7D00              MOV     R5,#00H
+000C 7C00              MOV     R4,#00H
+000E 900000      R     MOV     DPTR,#robot
+0011 120000      E     LCALL   ?C?PLDXDATA
+0014 E9                MOV     A,R1
+0015 2404              ADD     A,#04H
+0017 F9                MOV     R1,A
+0018 EA                MOV     A,R2
+0019 3400              ADDC    A,#00H
+001B FA                MOV     R2,A
+001C 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 12
+001F 7F00              MOV     R7,#00H
+0021 7E00              MOV     R6,#00H
+0023 7D00              MOV     R5,#00H
+0025 7C00              MOV     R4,#00H
+0027 900000      R     MOV     DPTR,#robot
+002A 120000      E     LCALL   ?C?PLDXDATA
+002D 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 13
+0030 7F00              MOV     R7,#00H
+0032 7E00              MOV     R6,#00H
+0034 7D00              MOV     R5,#00H
+0036 7C00              MOV     R4,#00H
+0038 900000      R     MOV     DPTR,#robot
+003B 120000      E     LCALL   ?C?PLDXDATA
+003E E9                MOV     A,R1
+003F 2408              ADD     A,#08H
+0041 F9                MOV     R1,A
+0042 EA                MOV     A,R2
+0043 3400              ADDC    A,#00H
+0045 FA                MOV     R2,A
+0046 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 14
+0049 7F00              MOV     R7,#00H
+004B 7E00              MOV     R6,#00H
+004D 7D00              MOV     R5,#00H
+004F 7C00              MOV     R4,#00H
+0051 900000      R     MOV     DPTR,#robot
+0054 120000      E     LCALL   ?C?PLDXDATA
+0057 E9                MOV     A,R1
+0058 240C              ADD     A,#0CH
+005A F9                MOV     R1,A
+005B EA                MOV     A,R2
+005C 3400              ADDC    A,#00H
+005E FA                MOV     R2,A
+005F 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 15
+0062 22                RET     
+             ; FUNCTION _position_init (END)
+
+C51 COMPILER V9.03   POSITION                                                              05/13/2012 22:25:52 PAGE 3   
+
+             ; FUNCTION _process_xy (BEGIN)
+                                           ; SOURCE LINE # 17
+0000 900000      R     MOV     DPTR,#traj
+0003 120000      E     LCALL   ?C?PSTXDATA
+                                           ; SOURCE LINE # 18
+                                           ; SOURCE LINE # 22
+0006 900000      R     MOV     DPTR,#traj
+0009 120000      E     LCALL   ?C?PLDXDATA
+000C E9                MOV     A,R1
+000D 240A              ADD     A,#0AH
+000F F9                MOV     R1,A
+0010 EA                MOV     A,R2
+0011 3401              ADDC    A,#01H
+0013 FA                MOV     R2,A
+0014 120000      E     LCALL   ?C?LLDPTR0
+0017 C000              PUSH    AR0
+0019 C001              PUSH    AR1
+001B C002              PUSH    AR2
+001D C003              PUSH    AR3
+001F 900000      R     MOV     DPTR,#traj
+0022 120000      E     LCALL   ?C?PLDXDATA
+0025 E9                MOV     A,R1
+0026 2412              ADD     A,#012H
+0028 F9                MOV     R1,A
+0029 EA                MOV     A,R2
+002A 3400              ADDC    A,#00H
+002C FA                MOV     R2,A
+002D 120000      E     LCALL   ?C?LLDPTR
+0030 D003              POP     AR3
+0032 D002              POP     AR2
+0034 D001              POP     AR1
+0036 D000              POP     AR0
+0038 120000      E     LCALL   ?C?LSUB
+003B 900000      R     MOV     DPTR,#delta_polar
+003E 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 23
+0041 900000      R     MOV     DPTR,#traj
+0044 120000      E     LCALL   ?C?PLDXDATA
+0047 E9                MOV     A,R1
+0048 240E              ADD     A,#0EH
+004A F9                MOV     R1,A
+004B EA                MOV     A,R2
+004C 3401              ADDC    A,#01H
+004E FA                MOV     R2,A
+004F 120000      E     LCALL   ?C?LLDPTR
+0052 900000      R     MOV     DPTR,#traj
+0055 120000      E     LCALL   ?C?PLDXDATA
+0058 E9                MOV     A,R1
+0059 2416              ADD     A,#016H
+005B F9                MOV     R1,A
+005C EA                MOV     A,R2
+005D 3400              ADDC    A,#00H
+005F FA                MOV     R2,A
+0060 120000      E     LCALL   ?C?LLDPTR0
+0063 120000      E     LCALL   ?C?LADD
+0066 7801              MOV     R0,#01H
+0068 120000      E     LCALL   ?C?SLSHR
+006B 900000      R     MOV     DPTR,#delta_polar+04H
+006E 120000      E     LCALL   ?C?LSTXDATA
+                                           ; SOURCE LINE # 25
+0071 7B01              MOV     R3,#01H
+0073 7A00        R     MOV     R2,#HIGH delta_polar
+C51 COMPILER V9.03   POSITION                                                              05/13/2012 22:25:52 PAGE 4   
+
+0075 7900        R     MOV     R1,#LOW delta_polar
+0077 C003              PUSH    AR3
+0079 C002              PUSH    AR2
+007B C001              PUSH    AR1
+007D 7B01              MOV     R3,#01H
+007F 7A00        R     MOV     R2,#HIGH delta_xy
+0081 7900        R     MOV     R1,#LOW delta_xy
+0083 900000      E     MOV     DPTR,#?_cartesian_from_polar?BYTE+03H
+0086 120000      E     LCALL   ?C?PSTXDATA
+0089 D001              POP     AR1
+008B D002              POP     AR2
+008D D003              POP     AR3
+008F 120000      E     LCALL   _cartesian_from_polar
+                                           ; SOURCE LINE # 27
+0092 900000      R     MOV     DPTR,#traj
+0095 120000      E     LCALL   ?C?PLDXDATA
+0098 E9                MOV     A,R1
+0099 2406              ADD     A,#06H
+009B F9                MOV     R1,A
+009C EA                MOV     A,R2
+009D 3401              ADDC    A,#01H
+009F FA                MOV     R2,A
+00A0 C003              PUSH    AR3
+00A2 C002              PUSH    AR2
+00A4 C001              PUSH    AR1
+00A6 120000      E     LCALL   ?C?LLDPTR
+00A9 900000      R     MOV     DPTR,#delta_xy+04H
+00AC 120000      E     LCALL   ?C?LLDXDATA0
+00AF 120000      E     LCALL   ?C?FPADD
+00B2 D001              POP     AR1
+00B4 D002              POP     AR2
+00B6 D003              POP     AR3
+00B8 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 28
+00BB 900000      R     MOV     DPTR,#traj
+00BE 120000      E     LCALL   ?C?PLDXDATA
+00C1 E9                MOV     A,R1
+00C2 2402              ADD     A,#02H
+00C4 F9                MOV     R1,A
+00C5 EA                MOV     A,R2
+00C6 3401              ADDC    A,#01H
+00C8 FA                MOV     R2,A
+00C9 C003              PUSH    AR3
+00CB C002              PUSH    AR2
+00CD C001              PUSH    AR1
+00CF 120000      E     LCALL   ?C?LLDPTR
+00D2 900000      R     MOV     DPTR,#delta_xy
+00D5 120000      E     LCALL   ?C?LLDXDATA0
+00D8 120000      E     LCALL   ?C?FPADD
+00DB D001              POP     AR1
+00DD D002              POP     AR2
+00DF D003              POP     AR3
+00E1 120000      E     LCALL   ?C?LSTPTR
+                                           ; SOURCE LINE # 29
+00E4 900000      R     MOV     DPTR,#traj
+00E7 120000      E     LCALL   ?C?PLDXDATA
+00EA E9                MOV     A,R1
+00EB 2412              ADD     A,#012H
+00ED F9                MOV     R1,A
+00EE EA                MOV     A,R2
+00EF 3400              ADDC    A,#00H
+00F1 FA                MOV     R2,A
+C51 COMPILER V9.03   POSITION                                                              05/13/2012 22:25:52 PAGE 5   
+
+00F2 C003              PUSH    AR3
+00F4 C002              PUSH    AR2
+00F6 C001              PUSH    AR1
+00F8 900000      R     MOV     DPTR,#traj
+00FB 120000      E     LCALL   ?C?PLDXDATA
+00FE E9                MOV     A,R1
+00FF 240A              ADD     A,#0AH
+0101 F9                MOV     R1,A
+0102 EA                MOV     A,R2
+0103 3401              ADDC    A,#01H
+0105 FA                MOV     R2,A
+0106 A801              MOV     R0,AR1
+0108 AC02              MOV     R4,AR2
+010A AD03              MOV     R5,AR3
+010C D001              POP     AR1
+010E D002              POP     AR2
+0110 D003              POP     AR3
+0112 7E00              MOV     R6,#00H
+0114 7F08              MOV     R7,#08H
+0116 120000      E     LCALL   ?C?COPYAMD
+                                           ; SOURCE LINE # 30
+0119 22                RET     
+             ; FUNCTION _process_xy (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    381    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----      22
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

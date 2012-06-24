@@ -1,0 +1,947 @@
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE PWM_RIGHT
+OBJECT MODULE PLACED IN .\DP8051\DP8051_Keil_903\Debug\pwm_right.obj
+COMPILER INVOKED BY: C:\Program Files\Cypress\PSoC Creator\2.0\PSoC Creator\import\keil\pk51\9.03\C51\BIN\c51.exe .\Gene
+                    -rated_Source\PSoC3\pwm_right.c NOIV LARGE MODDP2 OMF2 VB(1) PR(.\DP8051\DP8051_Keil_903\Debug\pwm_right.lst) CD DB NOIP 
+                    -OT(2,SIZE) INCDIR(Generated_Source\PSoC3) OJ(.\DP8051\DP8051_Keil_903\Debug\pwm_right.obj)
+
+line level    source
+
+   1          /*******************************************************************************
+   2          * File Name: pwm_right.c  
+   3          * Version 2.0
+   4          *
+   5          * Description:
+   6          *  The PWM User Module consist of an 8 or 16-bit counter with two 8 or 16-bit
+   7          *  comparitors. Each instance of this user module is capable of generating
+   8          *  two PWM outputs with the same period. The pulse width is selectable between
+   9          *  1 and 255/65535. The period is selectable between 2 and 255/65536 clocks. 
+  10          *  The compare value output may be configured to be active when the present 
+  11          *  counter is less than or less than/equal to the compare value.
+  12          *  A terminal count output is also provided. It generates a pulse one clock
+  13          *  width wide when the counter is equal to zero.
+  14          *
+  15          * Note:
+  16          *
+  17          *******************************************************************************
+  18          * Copyright 2008-2010, Cypress Semiconductor Corporation.  All rights reserved.
+  19          * You may use this file only in accordance with the license, terms, conditions, 
+  20          * disclaimers, and limitations in the end user license agreement accompanying 
+  21          * the software package with which this file was provided.
+  22          ********************************************************************************/
+  23          
+  24          #include "cytypes.h"
+  25          #include "pwm_right.h"
+  26          
+  27          uint8 pwm_right_initVar = 0u;
+  28          
+  29          /*******************************************************************************
+  30          * Function Name: pwm_right_Start
+  31          ********************************************************************************
+  32          *
+  33          * Summary:
+  34          *  The start function initializes the pwm with the default values, the 
+  35          *  enables the counter to begin counting.  It does not enable interrupts,
+  36          *  the EnableInt command should be called if interrupt generation is required.
+  37          *
+  38          * Parameters:  
+  39          *  void  
+  40          *
+  41          * Return: 
+  42          *  void
+  43          *
+  44          * Global variables:
+  45          *  pwm_right_initVar: Is modified when this function is called for the first 
+  46          *   time. Is used to ensure that initialization happens only once.
+  47          *
+  48          * Reentrant:
+  49          *  Yes
+  50          *
+  51          *******************************************************************************/
+  52          void pwm_right_Start(void) 
+  53          {
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 2   
+
+  54   1          /* If not Initialized then initialize all required hardware and software */
+  55   1          if(pwm_right_initVar == 0u)
+  56   1          {
+  57   2              pwm_right_Init();
+  58   2              pwm_right_initVar = 1u;
+  59   2          }
+  60   1          pwm_right_Enable();
+  61   1      
+  62   1      }
+  63          
+  64          
+  65          /*******************************************************************************
+  66          * Function Name: pwm_right_Init
+  67          ********************************************************************************
+  68          *
+  69          * Summary:
+  70          *  Initialize component's parameters to the parameters set by user in the 
+  71          *  customizer of the component placed onto schematic. Usually called in 
+  72          *  pwm_right_Start().
+  73          *
+  74          * Parameters:  
+  75          *  void
+  76          *
+  77          * Return: 
+  78          *  void
+  79          *
+  80          * Reentrant:
+  81          *  Yes
+  82          *
+  83          *******************************************************************************/
+  84          void pwm_right_Init(void) 
+  85          {
+  86   1          #if (pwm_right_UsingFixedFunction || pwm_right_UseControl)
+  87   1              uint8 ctrl;
+  88   1          #endif
+  89   1          
+  90   1          #if(!pwm_right_UsingFixedFunction) 
+                      #if(pwm_right_UseStatus)
+                          /* Interrupt State Backup for Critical Region*/
+                          uint8 pwm_right_interruptState;
+                      #endif
+                  #endif
+  96   1          
+  97   1         #if (pwm_right_UsingFixedFunction)
+  98   1              /* You are allowed to write the compare value (FF only) */
+  99   1              pwm_right_CONTROL |= pwm_right_CFG0_MODE;
+ 100   1              #if (pwm_right_DeadBand2_4)
+                          pwm_right_CONTROL |= pwm_right_CFG0_DB;
+                      #endif
+ 103   1                      
+ 104   1              /* Set the default Compare Mode */
+ 105   1              #if(pwm_right_PSOC3_ES2 || pwm_right_PSOC5_ES1)
+                              ctrl = pwm_right_CONTROL2 & ~pwm_right_CTRL_CMPMODE1_MASK;
+                              pwm_right_CONTROL2 = ctrl | pwm_right_DEFAULT_COMPARE1_MODE;
+                      #endif
+ 109   1              #if(pwm_right_PSOC3_ES3 || pwm_right_PSOC5_ES2)
+ 110   1                      ctrl = pwm_right_CONTROL3 & ~pwm_right_CTRL_CMPMODE1_MASK;
+ 111   1                      pwm_right_CONTROL3 = ctrl | pwm_right_DEFAULT_COMPARE1_MODE;
+ 112   1              #endif
+ 113   1              
+ 114   1               /* Clear and Set SYNCTC and SYNCCMP bits of RT1 register */
+ 115   1              pwm_right_RT1 &= ~pwm_right_RT1_MASK;
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 3   
+
+ 116   1              pwm_right_RT1 |= pwm_right_SYNC;     
+ 117   1                      
+ 118   1              /*Enable DSI Sync all all inputs of the PWM*/
+ 119   1              pwm_right_RT1 &= ~(pwm_right_SYNCDSI_MASK);
+ 120   1              pwm_right_RT1 |= pwm_right_SYNCDSI_EN;
+ 121   1             
+ 122   1          #elif (pwm_right_UseControl)
+                      /* Set the default compare mode defined in the parameter */
+                      ctrl = pwm_right_CONTROL & ~pwm_right_CTRL_CMPMODE2_MASK & ~pwm_right_CTRL_CMPMODE1_MASK;
+                      pwm_right_CONTROL = ctrl | pwm_right_DEFAULT_COMPARE2_MODE | pwm_right_DEFAULT_COMPARE1_MODE;
+                  #endif 
+ 127   1              
+ 128   1          #if (!pwm_right_UsingFixedFunction)
+                      #if (pwm_right_Resolution == 8)
+                          /* Set FIFO 0 to 1 byte register for period*/
+                          pwm_right_AUX_CONTROLDP0 |= (pwm_right_AUX_CTRL_FIFO0_CLR);
+                      #else /* (pwm_right_Resolution == 16)*/
+                          /* Set FIFO 0 to 1 byte register for period */
+                          pwm_right_AUX_CONTROLDP0 |= (pwm_right_AUX_CTRL_FIFO0_CLR);
+                          pwm_right_AUX_CONTROLDP1 |= (pwm_right_AUX_CTRL_FIFO0_CLR);
+                      #endif
+                  #endif
+ 138   1              
+ 139   1          pwm_right_WritePeriod(pwm_right_INIT_PERIOD_VALUE);
+ 140   1          pwm_right_WriteCounter(pwm_right_INIT_PERIOD_VALUE);
+ 141   1              
+ 142   1              #if (pwm_right_UseOneCompareMode)
+ 143   1                  pwm_right_WriteCompare(pwm_right_INIT_COMPARE_VALUE1);
+ 144   1              #else
+                          pwm_right_WriteCompare1(pwm_right_INIT_COMPARE_VALUE1);
+                          pwm_right_WriteCompare2(pwm_right_INIT_COMPARE_VALUE2);
+                      #endif
+ 148   1              
+ 149   1              #if (pwm_right_KillModeMinTime)
+                          pwm_right_WriteKillTime(pwm_right_MinimumKillTime);
+                      #endif
+ 152   1              
+ 153   1              #if (pwm_right_DeadBandUsed)
+                          pwm_right_WriteDeadTime(pwm_right_INIT_DEAD_TIME);
+                      #endif
+ 156   1      
+ 157   1          #if (pwm_right_UseStatus || pwm_right_UsingFixedFunction)
+ 158   1              pwm_right_SetInterruptMode(pwm_right_INIT_INTERRUPTS_MODE);
+ 159   1          #endif
+ 160   1              
+ 161   1          #if (pwm_right_UsingFixedFunction)
+ 162   1              /* Globally Enable the Fixed Function Block chosen */
+ 163   1              pwm_right_GLOBAL_ENABLE |= pwm_right_BLOCK_EN_MASK;
+ 164   1              /* Set the Interrupt source to come from the status register */
+ 165   1              pwm_right_CONTROL2 |= pwm_right_CTRL2_IRQ_SEL;
+ 166   1          #else
+                      #if(pwm_right_UseStatus)
+                          
+                          /* CyEnterCriticalRegion and CyExitCriticalRegion are used to mark following region critical*/
+                          /* Enter Critical Region*/
+                          pwm_right_interruptState = CyEnterCriticalSection();
+                          /* Use the interrupt output of the status register for IRQ output */
+                          pwm_right_STATUS_AUX_CTRL |= pwm_right_STATUS_ACTL_INT_EN_MASK;
+                          
+                           /* Exit Critical Region*/
+                          CyExitCriticalSection(pwm_right_interruptState);
+                          
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 4   
+
+                          /* Clear the FIFO to enable the pwm_right_STATUS_FIFOFULL
+                                 bit to be set on FIFO full. */
+                          pwm_right_ClearFIFO();
+                      #endif
+                  #endif
+ 183   1      }
+ 184          
+ 185          
+ 186          /*******************************************************************************
+ 187          * Function Name: pwm_right_Enable
+ 188          ********************************************************************************
+ 189          *
+ 190          * Summary: 
+ 191          *  Enables the PWM block operation
+ 192          *
+ 193          * Parameters:  
+ 194          *  void
+ 195          *
+ 196          * Return: 
+ 197          *  void
+ 198          *
+ 199          * Side Effects: 
+ 200          *  This works only if software enable mode is chosen
+ 201          *
+ 202          * Reentrant:
+ 203          *  Yes
+ 204          *
+ 205          *******************************************************************************/
+ 206          void pwm_right_Enable(void) 
+ 207          {
+ 208   1          #if (pwm_right_UseControl || pwm_right_UsingFixedFunction)
+ 209   1              pwm_right_CONTROL |= pwm_right_CTRL_ENABLE;
+ 210   1          #endif
+ 211   1      }
+ 212          
+ 213          
+ 214          /*******************************************************************************
+ 215          * Function Name: pwm_right_Stop
+ 216          ********************************************************************************
+ 217          *
+ 218          * Summary:
+ 219          *  The stop function halts the PWM, but does not change any modes or disable
+ 220          *  interrupts.
+ 221          *
+ 222          * Parameters:  
+ 223          *  void  
+ 224          *
+ 225          * Return: 
+ 226          *  void
+ 227          *
+ 228          * Side Effects:
+ 229          *  If the Enable mode is set to Hardware only then this function
+ 230          *  has no effect on the operation of the PWM
+ 231          *
+ 232          * Reentrant:
+ 233          *  Yes
+ 234          *
+ 235          *******************************************************************************/
+ 236          void pwm_right_Stop(void) 
+ 237          {
+ 238   1          #if (pwm_right_UseControl || pwm_right_UsingFixedFunction)
+ 239   1              pwm_right_CONTROL &= ~pwm_right_CTRL_ENABLE;
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 5   
+
+ 240   1          #endif
+ 241   1      }
+ 242          
+ 243          
+ 244          #if (pwm_right_UseOneCompareMode)
+ 245          #if (pwm_right_CompareMode1SW)
+              /*******************************************************************************
+              * Function Name: pwm_right_SetCompareMode
+              ********************************************************************************
+              * 
+              * Summary:
+              *  This function writes the Compare Mode for the pwm output when in Dither mode,
+              *  Center Align Mode or One Output Mode.
+              *
+              * Parameters:
+              *  comparemode:  The new compare mode for the PWM output. Use the compare types
+              *                defined in the H file as input arguments.
+              *
+              * Return:
+              *  void
+              *
+              * Reentrant:
+              *  Yes
+              *
+              *******************************************************************************/
+              void pwm_right_SetCompareMode(uint8 comparemode) 
+              {
+                  #if(pwm_right_UsingFixedFunction)
+                          #if(pwm_right_PSOC3_ES2 || pwm_right_PSOC5_ES1)
+                                      uint8 comparemodemasked = (comparemode << pwm_right_CTRL_CMPMODE1_SHIFT);
+                                      pwm_right_CONTROL2 &= ~pwm_right_CTRL_CMPMODE1_MASK; /*Clear Existing Data */
+                                      pwm_right_CONTROL2 |= comparemodemasked;  
+                              #endif
+                              
+                          #if(pwm_right_PSOC3_ES3 || pwm_right_PSOC5_ES2)
+                                  uint8 comparemodemasked = (comparemode << pwm_right_CTRL_CMPMODE1_SHIFT);
+                          pwm_right_CONTROL3 &= ~pwm_right_CTRL_CMPMODE1_MASK; /*Clear Existing Data */
+                          pwm_right_CONTROL3 |= comparemodemasked;     
+                              #endif
+                              
+                  #elif (pwm_right_UseControl)
+                      uint8 comparemode1masked = (comparemode << pwm_right_CTRL_CMPMODE1_SHIFT) & pwm_right_CTRL_CMPMODE
+             -1_MASK;
+                      uint8 comparemode2masked = (comparemode << pwm_right_CTRL_CMPMODE2_SHIFT) & pwm_right_CTRL_CMPMODE
+             -2_MASK;
+                      pwm_right_CONTROL &= ~(pwm_right_CTRL_CMPMODE1_MASK | pwm_right_CTRL_CMPMODE2_MASK); /*Clear exist
+             -ing mode */
+                      pwm_right_CONTROL |= (comparemode1masked | comparemode2masked);
+                      
+                  #else
+                      uint8 temp = comparemode;
+                  #endif
+              }
+              #endif /* pwm_right_CompareMode1SW */
+ 291          
+ 292          #else /* UseOneCompareMode */
+              
+              
+              #if (pwm_right_CompareMode1SW)
+              /*******************************************************************************
+              * Function Name: pwm_right_SetCompareMode1
+              ********************************************************************************
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 6   
+
+              * 
+              * Summary:
+              *  This function writes the Compare Mode for the pwm or pwm1 output
+              *
+              * Parameters:  
+              *  comparemode:  The new compare mode for the PWM output. Use the compare types
+              *                defined in the H file as input arguments.
+              *
+              * Return: 
+              *  void
+              *
+              * Reentrant:
+              *  Yes
+              *
+              *******************************************************************************/
+              void pwm_right_SetCompareMode1(uint8 comparemode) 
+              {
+                  uint8 comparemodemasked = (comparemode << pwm_right_CTRL_CMPMODE1_SHIFT) & pwm_right_CTRL_CMPMODE1_MAS
+             -K;
+                  #if(pwm_right_UsingFixedFunction)
+                          #if(pwm_right_PSOC3_ES2 || pwm_right_PSOC5_ES1)
+                                      pwm_right_CONTROL2 &= pwm_right_CTRL_CMPMODE1_MASK; /*Clear existing mode */
+                                      pwm_right_CONTROL2 |= comparemodemasked; 
+                          #endif
+                              
+                              #if(pwm_right_PSOC3_ES3 || pwm_right_PSOC5_ES2)
+                                  pwm_right_CONTROL3 &= pwm_right_CTRL_CMPMODE1_MASK; /*Clear existing mode */
+                                      pwm_right_CONTROL3 |= comparemodemasked; 
+                          #endif
+                              
+                  #elif (pwm_right_UseControl)
+                      pwm_right_CONTROL &= pwm_right_CTRL_CMPMODE1_MASK; /*Clear existing mode */
+                      pwm_right_CONTROL |= comparemodemasked;
+                  #endif    
+              }
+              #endif /* pwm_right_CompareMode1SW */
+              
+              
+              #if (pwm_right_CompareMode2SW)
+              /*******************************************************************************
+              * Function Name: pwm_right_SetCompareMode2
+              ********************************************************************************
+              * 
+              * Summary:
+              *  This function writes the Compare Mode for the pwm or pwm2 output
+              *
+              * Parameters:  
+              *  comparemode:  The new compare mode for the PWM output. Use the compare types
+              *                defined in the H file as input arguments.
+              *
+              * Return: 
+              *  void
+              *
+              * Reentrant:
+              *  Yes
+              *
+              *******************************************************************************/
+              void pwm_right_SetCompareMode2(uint8 comparemode) 
+              {
+                  #if(pwm_right_UsingFixedFunction)
+                      /* Do Nothing because there is no second Compare Mode Register in FF block*/ 
+                  #elif (pwm_right_UseControl)
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 7   
+
+                  uint8 comparemodemasked = (comparemode << pwm_right_CTRL_CMPMODE2_SHIFT) & pwm_right_CTRL_CMPMODE2_MAS
+             -K;
+                  pwm_right_CONTROL &= pwm_right_CTRL_CMPMODE2_MASK; /*Clear existing mode */
+                  pwm_right_CONTROL |= comparemodemasked;
+                  #endif    
+              }
+              #endif /*pwm_right_CompareMode2SW */
+              #endif /* UseOneCompareMode */
+ 367          
+ 368          
+ 369          /*******************************************************************************
+ 370          * Function Name: pwm_right_WriteCounter
+ 371          ********************************************************************************
+ 372          * 
+ 373          * Summary:
+ 374          *  This function is used to change the counter value.
+ 375          *
+ 376          * Parameters:  
+ 377          *  counter:  This value may be between 1 and (2^Resolution)-1.   
+ 378          *
+ 379          * Return: 
+ 380          *  void
+ 381          *
+ 382          * Reentrant:
+ 383          *  Yes
+ 384          *
+ 385          *******************************************************************************/
+ 386          void pwm_right_WriteCounter(uint16 counter) 
+ 387          {
+ 388   1          #if(pwm_right_UsingFixedFunction)
+ 389   1              CY_SET_REG16(pwm_right_COUNTER_LSB_PTR, (uint16)counter);
+ 390   1          #else
+                      CY_SET_REG16(pwm_right_COUNTER_LSB_PTR, counter);
+                  #endif
+ 393   1      }
+ 394          
+ 395          
+ 396          #if (!pwm_right_UsingFixedFunction)
+              /*******************************************************************************
+              * Function Name: pwm_right_ReadCounter
+              ********************************************************************************
+              * 
+              * Summary:
+              *  This function returns the current value of the counter.  It doesn't matter
+              *  if the counter is enabled or running.
+              *
+              * Parameters:  
+              *  void  
+              *
+              * Return: 
+              *  The current value of the counter.
+              *
+              * Reentrant:
+              *  Yes
+              *
+              *******************************************************************************/
+              uint16 pwm_right_ReadCounter(void) 
+              {
+                  /* Force capture by reading Accumulator */
+                  /* Must first do a software capture to be able to read the counter */
+                  /* It is up to the user code to make sure there isn't already captured data in the FIFO */
+                  CY_GET_REG8(pwm_right_COUNTERCAP_LSB_PTR);
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 8   
+
+                  
+                  /* Read the data from the FIFO (or capture register for Fixed Function)*/
+                  return (CY_GET_REG16(pwm_right_CAPTURE_LSB_PTR));
+              }
+              
+              
+              #if (pwm_right_UseStatus)
+              /*******************************************************************************
+              * Function Name: pwm_right_ClearFIFO
+              ********************************************************************************
+              * 
+              * Summary:
+              *  This function clears all capture data from the capture FIFO
+              *
+              * Parameters:  
+              *  void
+              *
+              * Return: 
+              *  void
+              *
+              * Reentrant:
+              *  Yes
+              *
+              *******************************************************************************/
+              void pwm_right_ClearFIFO(void) 
+              {
+                  while(pwm_right_ReadStatusRegister() & pwm_right_STATUS_FIFONEMPTY)
+                      pwm_right_ReadCapture();
+              }
+              #endif /* pwm_right_UseStatus */
+              #endif /* !pwm_right_UsingFixedFunction */
+ 452          
+ 453          
+ 454          /*******************************************************************************
+ 455          * Function Name: pwm_right_WritePeriod
+ 456          ********************************************************************************
+ 457          * 
+ 458          * Summary:
+ 459          *  This function is used to change the period of the counter.  The new period 
+ 460          *  will be loaded the next time terminal count is detected.
+ 461          *
+ 462          * Parameters:  
+ 463          *  period:  Period value. May be between 1 and (2^Resolution)-1.  A value of 0 
+ 464          *           will result in the counter remaining at zero.
+ 465          *
+ 466          * Return: 
+ 467          *  void
+ 468          *
+ 469          * Reentrant:
+ 470          *  Yes
+ 471          *
+ 472          *******************************************************************************/
+ 473          void pwm_right_WritePeriod(uint16 period) 
+ 474          {
+ 475   1          #if(pwm_right_UsingFixedFunction)
+ 476   1              CY_SET_REG16(pwm_right_PERIOD_LSB_PTR, (uint16)period);
+ 477   1          #else
+                      CY_SET_REG16(pwm_right_PERIOD_LSB_PTR, period);
+                  #endif
+ 480   1      }
+ 481          
+ 482          
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 9   
+
+ 483          #if (pwm_right_UseOneCompareMode)
+ 484          /*******************************************************************************
+ 485          * Function Name: pwm_right_WriteCompare
+ 486          ********************************************************************************
+ 487          * 
+ 488          * Summary:
+ 489          *  This funtion is used to change the compare1 value when the PWM is in Dither
+ 490          *  mode. The compare output will reflect the new value on the next UDB clock. 
+ 491          *  The compare output will be driven high when the present counter value is 
+ 492          *  compared to the compare value based on the compare mode defined in 
+ 493          *  Dither Mode.
+ 494          *
+ 495          * Parameters:  
+ 496          *  compare:  New compare value.  
+ 497          *
+ 498          * Return: 
+ 499          *  void
+ 500          *
+ 501          * Side Effects:
+ 502          *  This function is only available if the PWM mode parameter is set to
+ 503          *  Dither Mode, Center Aligned Mode or One Output Mode
+ 504          *
+ 505          * Reentrant:
+ 506          *  Yes
+ 507          *
+ 508          *******************************************************************************/
+ 509          void pwm_right_WriteCompare(uint16 compare) 
+ 510          {
+ 511   1         CY_SET_REG16(pwm_right_COMPARE1_LSB_PTR, compare);
+ 512   1         #if (pwm_right_PWMMode == pwm_right__B_PWM__DITHER)
+                      CY_SET_REG16(pwm_right_COMPARE2_LSB_PTR, compare+1);
+                 #endif
+ 515   1      }
+ 516          
+ 517          
+ 518          #else
+              
+              
+              /*******************************************************************************
+              * Function Name: pwm_right_WriteCompare1
+              ********************************************************************************
+              * 
+              * Summary:
+              *  This funtion is used to change the compare1 value.  The compare output will 
+              *  reflect the new value on the next UDB clock.  The compare output will be 
+              *  driven high when the present counter value is less than or less than or 
+              *  equal to the compare register, depending on the mode.
+              *
+              * Parameters:  
+              *  compare:  New compare value.  
+              *
+              * Return: 
+              *  void
+              *
+              * Reentrant:
+              *  Yes
+              *
+              *******************************************************************************/
+              void pwm_right_WriteCompare1(uint16 compare) 
+              {
+                  #if(pwm_right_UsingFixedFunction)
+                      CY_SET_REG16(pwm_right_COMPARE1_LSB_PTR, (uint16)compare);
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 10  
+
+                  #else
+                      CY_SET_REG16(pwm_right_COMPARE1_LSB_PTR, compare);
+                  #endif
+              }
+              
+              
+              /*******************************************************************************
+              * Function Name: pwm_right_WriteCompare2
+              ********************************************************************************
+              * 
+              * Summary:
+              *  This funtion is used to change the compare value, for compare1 output.  
+              *  The compare output will reflect the new value on the next UDB clock.  
+              *  The compare output will be driven high when the present counter value is 
+              *  less than or less than or equal to the compare register, depending on the 
+              *  mode.
+              *
+              * Parameters:  
+              *  compare:  New compare value.  
+              *
+              * Return: 
+              *  void
+              *
+              * Reentrant:
+              *  Yes
+              *
+              *******************************************************************************/
+              void pwm_right_WriteCompare2(uint16 compare) 
+              {
+                  #if(pwm_right_UsingFixedFunction)
+                      CY_SET_REG16(pwm_right_COMPARE2_LSB_PTR, compare);
+                  #else
+                      CY_SET_REG16(pwm_right_COMPARE2_LSB_PTR, compare);
+                  #endif
+              }
+              #endif /* UseOneCompareMode */
+ 581          
+ 582          
+ 583          #if (pwm_right_DeadBandUsed)
+              /*******************************************************************************
+              * Function Name: pwm_right_WriteDeadTime
+              ********************************************************************************
+              * 
+              * Summary:
+              *  This function writes the dead-band counts to the corresponding register
+              *
+              * Parameters:  
+              *  deadtime:  Number of counts for dead time 
+              *
+              * Return: 
+              *  void
+              *
+              * Reentrant:
+              *  Yes
+              *
+              *******************************************************************************/
+              void pwm_right_WriteDeadTime(uint8 deadtime) 
+              {
+                  /* If using the Dead Band 1-255 mode then just write the register */
+                  #if(!pwm_right_DeadBand2_4)
+                      CY_SET_REG8(pwm_right_DEADBAND_COUNT_PTR, deadtime);
+                  #else
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 11  
+
+                      /* Otherwise the data has to be masked and offset */        
+                      /* Clear existing data */
+                      pwm_right_DEADBAND_COUNT &= ~pwm_right_DEADBAND_COUNT_MASK; 
+                          /* Set new dead time */
+                      pwm_right_DEADBAND_COUNT |= (deadtime << pwm_right_DEADBAND_COUNT_SHIFT) & pwm_right_DEADBAND_COUN
+             -T_MASK; 
+                  #endif
+              }
+              
+              
+              /*******************************************************************************
+              * Function Name: pwm_right_ReadDeadTime
+              ********************************************************************************
+              * 
+              * Summary:
+              *  This function reads the dead-band counts from the corresponding register
+              *
+              * Parameters:  
+              *  void
+              *
+              * Return: 
+              *  Dead Band Counts
+              *
+              * Reentrant:
+              *  Yes
+              *
+              *******************************************************************************/
+              uint8 pwm_right_ReadDeadTime(void) 
+              {
+                  /* If using the Dead Band 1-255 mode then just read the register */
+                  #if(!pwm_right_DeadBand2_4)
+                      return (CY_GET_REG8(pwm_right_DEADBAND_COUNT_PTR));
+                  #else
+                      /* Otherwise the data has to be masked and offset */
+                      return ((pwm_right_DEADBAND_COUNT & pwm_right_DEADBAND_COUNT_MASK) >> pwm_right_DEADBAND_COUNT_SHI
+             -FT);
+                  #endif
+              }
+              #endif /* DeadBandUsed */
+ 644          
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 12  
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION pwm_right_Start (BEGIN)
+                                           ; SOURCE LINE # 52
+                                           ; SOURCE LINE # 53
+                                           ; SOURCE LINE # 55
+0000 900000      R     MOV     DPTR,#pwm_right_initVar
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 7009              JNZ     ?C0001
+                                           ; SOURCE LINE # 56
+                                           ; SOURCE LINE # 57
+0008 120000      R     LCALL   pwm_right_Init
+                                           ; SOURCE LINE # 58
+000B 900000      R     MOV     DPTR,#pwm_right_initVar
+000E 7401              MOV     A,#01H
+0010 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 59
+0011         ?C0001:
+                                           ; SOURCE LINE # 60
+0011 120000      R     LCALL   pwm_right_Enable
+                                           ; SOURCE LINE # 62
+0014 22                RET     
+             ; FUNCTION pwm_right_Start (END)
+
+             ; FUNCTION pwm_right_Init (BEGIN)
+                                           ; SOURCE LINE # 84
+                                           ; SOURCE LINE # 85
+                                           ; SOURCE LINE # 99
+0000 904F0C            MOV     DPTR,#04F0CH
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 4402              ORL     A,#02H
+0008 FF                MOV     R7,A
+0009 EF                MOV     A,R7
+000A F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 110
+000B 904F0E            MOV     DPTR,#04F0EH
+000E E0                MOVX    A,@DPTR
+000F FF                MOV     R7,A
+0010 EF                MOV     A,R7
+0011 548F              ANL     A,#08FH
+0013 FF                MOV     R7,A
+0014 900000      R     MOV     DPTR,#ctrl
+0017 EF                MOV     A,R7
+0018 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 111
+0019 900000      R     MOV     DPTR,#ctrl
+001C E0                MOVX    A,@DPTR
+001D FF                MOV     R7,A
+001E EF                MOV     A,R7
+001F 4410              ORL     A,#010H
+0021 FF                MOV     R7,A
+0022 904F0E            MOV     DPTR,#04F0EH
+0025 EF                MOV     A,R7
+0026 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 115
+0027 904F17            MOV     DPTR,#04F17H
+002A E0                MOVX    A,@DPTR
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 13  
+
+002B FF                MOV     R7,A
+002C EF                MOV     A,R7
+002D 54CF              ANL     A,#0CFH
+002F FF                MOV     R7,A
+0030 EF                MOV     A,R7
+0031 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 116
+0032 904F17            MOV     DPTR,#04F17H
+0035 E0                MOVX    A,@DPTR
+0036 FF                MOV     R7,A
+0037 EF                MOV     A,R7
+0038 4430              ORL     A,#030H
+003A FF                MOV     R7,A
+003B EF                MOV     A,R7
+003C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 119
+003D 904F17            MOV     DPTR,#04F17H
+0040 E0                MOVX    A,@DPTR
+0041 FF                MOV     R7,A
+0042 EF                MOV     A,R7
+0043 54F0              ANL     A,#0F0H
+0045 FF                MOV     R7,A
+0046 EF                MOV     A,R7
+0047 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 120
+0048 904F17            MOV     DPTR,#04F17H
+004B E0                MOVX    A,@DPTR
+004C FF                MOV     R7,A
+004D EF                MOV     A,R7
+004E 440F              ORL     A,#0FH
+0050 FF                MOV     R7,A
+0051 EF                MOV     A,R7
+0052 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 139
+0053 7F00              MOV     R7,#00H
+0055 7E04              MOV     R6,#04H
+0057 120000      R     LCALL   _pwm_right_WritePeriod
+                                           ; SOURCE LINE # 140
+005A 7F00              MOV     R7,#00H
+005C 7E04              MOV     R6,#04H
+005E 120000      R     LCALL   _pwm_right_WriteCounter
+                                           ; SOURCE LINE # 143
+0061 7F00              MOV     R7,#00H
+0063 7E00              MOV     R6,#00H
+0065 120000      R     LCALL   _pwm_right_WriteCompare
+                                           ; SOURCE LINE # 158
+0068 904F0F            MOV     DPTR,#04F0FH
+006B E4                CLR     A
+006C F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 163
+006D 9043A3            MOV     DPTR,#043A3H
+0070 E0                MOVX    A,@DPTR
+0071 FF                MOV     R7,A
+0072 EF                MOV     A,R7
+0073 4402              ORL     A,#02H
+0075 FF                MOV     R7,A
+0076 EF                MOV     A,R7
+0077 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 165
+0078 904F0D            MOV     DPTR,#04F0DH
+007B E0                MOVX    A,@DPTR
+007C FF                MOV     R7,A
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 14  
+
+007D EF                MOV     A,R7
+007E 4401              ORL     A,#01H
+0080 FF                MOV     R7,A
+0081 EF                MOV     A,R7
+0082 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 183
+0083 22                RET     
+             ; FUNCTION pwm_right_Init (END)
+
+             ; FUNCTION pwm_right_Enable (BEGIN)
+                                           ; SOURCE LINE # 206
+                                           ; SOURCE LINE # 207
+                                           ; SOURCE LINE # 209
+0000 904F0C            MOV     DPTR,#04F0CH
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 4401              ORL     A,#01H
+0008 FF                MOV     R7,A
+0009 EF                MOV     A,R7
+000A F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 211
+000B 22                RET     
+             ; FUNCTION pwm_right_Enable (END)
+
+             ; FUNCTION pwm_right_Stop (BEGIN)
+                                           ; SOURCE LINE # 236
+                                           ; SOURCE LINE # 237
+                                           ; SOURCE LINE # 239
+0000 904F0C            MOV     DPTR,#04F0CH
+0003 E0                MOVX    A,@DPTR
+0004 FF                MOV     R7,A
+0005 EF                MOV     A,R7
+0006 54FE              ANL     A,#0FEH
+0008 FF                MOV     R7,A
+0009 EF                MOV     A,R7
+000A F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 241
+000B 22                RET     
+             ; FUNCTION pwm_right_Stop (END)
+
+             ; FUNCTION _pwm_right_WriteCounter (BEGIN)
+                                           ; SOURCE LINE # 386
+0000 900000      R     MOV     DPTR,#counter
+0003 EE                MOV     A,R6
+0004 F0                MOVX    @DPTR,A
+0005 A3                INC     DPTR
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 387
+                                           ; SOURCE LINE # 389
+0008 7B02              MOV     R3,#02H
+000A 7A4F              MOV     R2,#04FH
+000C 7912              MOV     R1,#012H
+000E 900000      R     MOV     DPTR,#counter
+0011 E0                MOVX    A,@DPTR
+0012 FC                MOV     R4,A
+0013 A3                INC     DPTR
+0014 E0                MOVX    A,@DPTR
+0015 FD                MOV     R5,A
+0016 120000      E     LCALL   _cywrite16_nodpx
+                                           ; SOURCE LINE # 393
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 15  
+
+0019 22                RET     
+             ; FUNCTION _pwm_right_WriteCounter (END)
+
+             ; FUNCTION _pwm_right_WritePeriod (BEGIN)
+                                           ; SOURCE LINE # 473
+0000 900000      R     MOV     DPTR,#period
+0003 EE                MOV     A,R6
+0004 F0                MOVX    @DPTR,A
+0005 A3                INC     DPTR
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 474
+                                           ; SOURCE LINE # 476
+0008 7B02              MOV     R3,#02H
+000A 7A4F              MOV     R2,#04FH
+000C 7910              MOV     R1,#010H
+000E 900000      R     MOV     DPTR,#period
+0011 E0                MOVX    A,@DPTR
+0012 FC                MOV     R4,A
+0013 A3                INC     DPTR
+0014 E0                MOVX    A,@DPTR
+0015 FD                MOV     R5,A
+0016 120000      E     LCALL   _cywrite16_nodpx
+                                           ; SOURCE LINE # 480
+0019 22                RET     
+             ; FUNCTION _pwm_right_WritePeriod (END)
+
+             ; FUNCTION _pwm_right_WriteCompare (BEGIN)
+                                           ; SOURCE LINE # 509
+0000 900000      R     MOV     DPTR,#compare
+0003 EE                MOV     A,R6
+0004 F0                MOVX    @DPTR,A
+0005 A3                INC     DPTR
+0006 EF                MOV     A,R7
+0007 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 510
+                                           ; SOURCE LINE # 511
+0008 7B02              MOV     R3,#02H
+000A 7A4F              MOV     R2,#04FH
+000C 7912              MOV     R1,#012H
+000E 900000      R     MOV     DPTR,#compare
+0011 E0                MOVX    A,@DPTR
+0012 FC                MOV     R4,A
+0013 A3                INC     DPTR
+0014 E0                MOVX    A,@DPTR
+0015 FD                MOV     R5,A
+0016 120000      E     LCALL   _cywrite16_nodpx
+                                           ; SOURCE LINE # 515
+0019 22                RET     
+             ; FUNCTION _pwm_right_WriteCompare (END)
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    255    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      1       7
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+C51 COMPILER V9.03   PWM_RIGHT                                                             05/13/2012 22:25:55 PAGE 16  
+
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
